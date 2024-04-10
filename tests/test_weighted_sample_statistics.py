@@ -1,4 +1,4 @@
-from weighted_sample_statistics import WeightedSampleStatistics
+from weighted_sample_statistics.core import WeightedSampleStatistics
 
 __author__ = "Eelco van Vliet"
 __copyright__ = "Eelco van Vliet"
