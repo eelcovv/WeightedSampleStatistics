@@ -7,7 +7,7 @@ else:
     from importlib_metadata import PackageNotFoundError, version  # pragma: no cover
 
 try:
-    # Change here if project is renamed and does not equal the package name
+    # Change here if the project is renamed and does not equal the package name
     dist_name = __name__
     __version__ = version(dist_name)
 except PackageNotFoundError:  # pragma: no cover
@@ -15,9 +15,7 @@ except PackageNotFoundError:  # pragma: no cover
 finally:
     del version, PackageNotFoundError
 
-from .core import (
-    Weightedweighted_sample_statistics as Weightedweighted_sample_statistics,
-)
+from .core import WeightedSampleStatistics as WeightedSampleStatistics
 from .variable_properties import VariableProperties as VariableProperties
 from .utils import rename_all_variables as rename_all_variables
 from .utils import make_negation_name as make_negation_name
