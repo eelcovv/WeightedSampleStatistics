@@ -2,9 +2,6 @@
 This is a skeleton file that can serve as a starting point for a Python
 console script.
 
-Then run ``pip install .`` (or ``pip install -e .`` for editable mode)
-which will install the command ``fibonacci`` inside your current environment.
-
 Besides console scripts, the header (i.e., until ``_logger``...) of this file can
 also be used as a template for Python modules.
 
@@ -31,9 +28,7 @@ _logger = logging.getLogger(__name__)
 
 # ---- Python API ----
 # The functions defined in this section can be imported by users in their
-# Python scripts/interactive interpreter, e.g., via
-# `from SampleStatistics.skeleton import fib`,
-# when using this Python module as a library.
+# Python scripts/interactive interpreter
 
 # ---- CLI ----
 # The functions defined in this section are wrappers around the main Python
@@ -85,15 +80,15 @@ def setup_logging(loglevel):
     """
     log_format = "[%(asctime)s] %(levelname)s:%(name)s:%(message)s"
     logging.basicConfig(
-        level=loglevel, stream=sys.stdout, format=log_format, datefmt="%Y-%m-%d %H:%M:%S"
+        level=loglevel,
+        stream=sys.stdout,
+        format=log_format,
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
 def main(args):
-    """Wrapper allowing: func:`fib` to be called with string arguments in a CLI fashion
-
-    Instead of returning the value from: func:`fib`, it prints the result to the
-    ``stdout`` in a nicely formatted message.
+    """Wrapper function
 
     Args:
       args (List[str]): command line parameters as a list of strings
