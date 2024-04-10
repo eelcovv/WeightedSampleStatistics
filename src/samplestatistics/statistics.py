@@ -1,3 +1,6 @@
+"""
+Definition of SampleStatistics class to calculate weighted statistics
+"""
 import logging
 import re
 from typing import Union
@@ -54,21 +57,21 @@ class SampleStatistics:
     """
 
     def __init__(
-            self,
-            group_keys,
-            records_df_selection,
-            weights_df,
-            column_list=None,
-            var_type=None,
-            scaling_factor_key=None,
-            units_scaling_factor_key=None,
-            all_records_df=None,
-            var_weight_key=None,
-            variance_df_selection=None,
-            records_df_unfilled=None,
-            add_inverse=False,
-            report_numbers=False,
-            negation_suffix=None,
+        self,
+        group_keys,
+        records_df_selection,
+        weights_df,
+        column_list=None,
+        var_type=None,
+        scaling_factor_key=None,
+        units_scaling_factor_key=None,
+        all_records_df=None,
+        var_weight_key=None,
+        variance_df_selection=None,
+        records_df_unfilled=None,
+        add_inverse=False,
+        report_numbers=False,
+        negation_suffix=None,
     ):
         self.group_keys = group_keys
         self.records_df_selection = records_df_selection
@@ -214,7 +217,7 @@ class SampleStatistics:
         # laat weight intact. In bereken je de populatie variable van het gewicht
 
         self.var_weight_pop_df = (
-                self.weights_df[self.scaling_factor_key] * self.scale_variabele_pop_df
+            self.weights_df[self.scaling_factor_key] * self.scale_variabele_pop_df
         )
         self.var_weight_sel_df = self.var_weight_pop_df.reindex(
             self.records_df_selection.index

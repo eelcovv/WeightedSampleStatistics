@@ -1,5 +1,8 @@
-import re
+"""
+Some utility functions.
+"""
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -147,11 +150,11 @@ def get_records_select(
         # Verkrijg de data van 'column' uit de dataframe. Pas eventueel een filter toe
         try:
             records_selection = get_filtered_data_column(
-            dataframe=dataframe,
-            column=column,
-            var_filter=var_filter,
-            output_format=output_format,
-        )
+                dataframe=dataframe,
+                column=column,
+                var_filter=var_filter,
+                output_format=output_format,
+            )
         except KeyError as err:
             logger.warning(f"{err}\nYou are missing column {column}")
             return None, None
