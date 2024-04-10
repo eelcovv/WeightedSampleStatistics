@@ -72,6 +72,7 @@ class WeightedSampleStatistics:
         add_inverse=False,
         report_numbers=False,
         negation_suffix=None,
+        run=False,
     ):
         self.group_keys = group_keys
         self.records_df_selection = records_df_selection
@@ -177,6 +178,11 @@ class WeightedSampleStatistics:
         self.weights_pop_normalized_df = None
         self.unit_weights_sel_sum_agg = None
         self.unit_weights_pop_sum_agg = None
+
+        if run:
+            self.run()
+
+    def run(self):
 
         self.set_mask_valid_df()
 
