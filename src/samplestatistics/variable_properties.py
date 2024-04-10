@@ -40,7 +40,6 @@ class VariableProperties:
         try:
             self.filter = self.variables.loc[self.column, "filter"]
         except KeyError:
-            # TODO: dit impliceert dat variables zonder filter altijd overgeslagen worden ?
             logger.debug(f"Variable {self.column} does not has a valid filter")
             self.type = None
         try:
