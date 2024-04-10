@@ -15,7 +15,7 @@ DataFrameType = Union[DataFrame, None]
 logger = logging.getLogger(__name__)
 
 
-class WeightedSampleStatistics:
+class Weightedweighted_sample_statistics:
     """
     Calculate weighted_sample_statistics for summations
 

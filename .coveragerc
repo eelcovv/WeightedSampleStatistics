@@ -1,7 +1,7 @@
 # .coveragerc to control coverage.py
 [run]
 branch = True
-source = samplestatistics
+source = weighted_sample_statistics
 # omit = bad_file.py
 
 [paths]

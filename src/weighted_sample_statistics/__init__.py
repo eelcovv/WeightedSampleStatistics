@@ -15,7 +15,9 @@ except PackageNotFoundError:  # pragma: no cover
 finally:
     del version, PackageNotFoundError
 
-from .core import WeightedSampleStatistics as WeightedSampleStatistics
+from .core import (
+    Weightedweighted_sample_statistics as Weightedweighted_sample_statistics,
+)
 from .variable_properties import VariableProperties as VariableProperties
 from .utils import rename_all_variables as rename_all_variables
 from .utils import make_negation_name as make_negation_name

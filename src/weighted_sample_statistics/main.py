@@ -50,7 +50,7 @@ def parse_args(args):
     parser.add_argument(
         "--version",
         action="version",
-        version=f"SampleStatistics {__version__}",
+        version=f"weighted_sample_statistics {__version__}",
     )
     parser.add_argument(dest="n", help="n-th Fibonacci number", type=int, metavar="INT")
     parser.add_argument(
@@ -116,6 +116,6 @@ if __name__ == "__main__":
     # After installing your project with pip, users can also run your Python
     # modules as scripts via the ``-m`` flag, as defined in PEP 338::
     #
-    #     python -m WeightedSampleStatistics.skeleton 42
+    #     python -m Weightedweighted_sample_statistics.skeleton 42
     #
     run()
