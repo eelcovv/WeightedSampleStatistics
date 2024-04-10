@@ -3,8 +3,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from ict_analyser.analyser_tool.utils import logger
-from ict_analyser.shared.utils import make_negation_name
+from .utils import make_negation_name
 
 from pandas import DataFrame
 from typing import Union

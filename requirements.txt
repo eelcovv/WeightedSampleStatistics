@@ -1,2 +1,5 @@
 samplestatistics
 setuptools
+numpy
+pandas
+
