@@ -2,7 +2,7 @@
 Changelog
 =========
 
-Version 0.0.5
+Version 0.0.7
 =============
 
 - First release to set up the module
