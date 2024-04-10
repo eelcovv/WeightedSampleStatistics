@@ -12,3 +12,4 @@ def test_main(capsys):
     weighted_sample_statistics = WeightedSampleStatistics(
         group_keys=None, records_df_selection=None, weights_df=None
     )
+    assert weighted_sample_statistics.group_keys is None
