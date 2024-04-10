@@ -3,6 +3,7 @@ Some utility functions.
 """
 import logging
 import re
+from pandas import DataFrame, Series
 
 logger = logging.getLogger(__name__)
 
@@ -227,3 +228,43 @@ def get_records_select(
         records_selection = df_num.copy()
 
     return records_selection, column_list
+
+
+def prepare_df_for_statistics(
+    dataframe, index_names, units_key, regional=None, region=None
+) -> DataFrame:
+    """Prepare dataframe for statistics
+
+    Args:
+        dataframe (DataFrame): the data frame to reorganise
+        index_names (list): the index names
+        units_key (str): name of the units column
+        regional (dict): the regional column
+        region (str): the name of the region column
+
+    Returns:
+        dataframe: DataFrame
+    """
+    if regional is None or regional == "nuts0":
+        dataframe = dataframe.copy().reset_index()
+    else:
+        mask = dataframe[regional] == region
+        dataframe = dataframe[mask].copy().reset_index()
+    # the index which we are going to impose are the group_keys for this statistics
+    # output
+    # plus always the be_id if that was not yet added to the group_keys
+    # make sure to copy group_keys
+    # Therefore add the index in tuples to the index names
+    mi = [ll for ll in index_names]
+    dataframe.set_index(mi, inplace=True, drop=True)
+    # the index names now still have the tuples of mi. Change that back to the normal
+    # names
+    dataframe.index.rename(index_names, inplace=True)
+    # gooi alle niet valide indices eruit
+    dataframe = dataframe.reindex(dataframe.index.dropna())
+
+    dataframe.sort_index(inplace=True)
+    # deze toevoegen om straks bij get_statistics het gewicht voor units en wp op
+    # dezelfde manier te kunnen doen
+    dataframe[units_key] = 1
+    return dataframe
