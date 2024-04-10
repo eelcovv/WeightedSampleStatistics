@@ -14,3 +14,9 @@ except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
 finally:
     del version, PackageNotFoundError
+
+from .core import WeightedSampleStatistics as WeightedSampleStatistics
+from .variable_properties import VariableProperties as VariableProperties
+from .utils import rename_all_variables as rename_all_variables
+from .utils import make_negation_name as make_negation_name
+from .utils import get_records_select as get_records_select
