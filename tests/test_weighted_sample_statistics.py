@@ -7,7 +7,7 @@ __license__ = "MIT"
 
 def test_main(capsys):
     """CLI Tests"""
-    # capsys is a pytest fixture that allows asserts against stdout/stderr
+    # capsys is a pytest fixture that allows asserting against stdout/stderr
     # https://docs.pytest.org/en/stable/capture.html
     weighted_sample_statistics = WeightedSampleStatistics(
         group_keys=None, records_df_selection=None, weights_df=None
