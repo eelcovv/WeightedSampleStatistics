@@ -1,19 +1,20 @@
+import logging
 import re
+from typing import Union
 
 import numpy as np
-import pandas as pd
+from pandas import DataFrame
 
 from .utils import make_negation_name
 
-from pandas import DataFrame
-from typing import Union
-
 DataFrameType = Union[DataFrame, None]
+
+logger = logging.getLogger(__name__)
 
 
 class SampleStatistics:
     """
-    calculate statistics for summations
+    Calculate statistics for summations
 
     Parameters
     ----------
@@ -22,7 +23,7 @@ class SampleStatistics:
     records_df_selection: DataFrame
         All the microdata including non-response
     weights_df: DataFrame
-        The weights per be
+        The weights per unit
     all_records_df: DataFrame
         All the microdata including non-response
     column_list: iterable
@@ -42,8 +43,6 @@ class SampleStatistics:
         The summation of the weighted values
     weights_sum: grouped
         The summation of the weights
-    weights_count: grouped
-        The count of the weights, ie the number of items in the group
     records_weighted_mean: grouped
         The sample mean estimate
     records_std grouped
@@ -196,8 +195,8 @@ class SampleStatistics:
         self.unit_weights_pop_df = self.weights_df.loc[:, self.units_scaling_factor_key]
         fixed = set(list([self.var_weight_key, self.scaling_factor_key]))
         if set(self.column_list).intersection(fixed):
-            # in case the variable to process (stored in the column list) is a scaling variable
-            # we do not scale it, so just set the weights to 1
+            # in case the variable to process (stored in the column list) is a scaling variable,
+            # we do not scale it, so set the weights to 1
             self.weights.values[:] = 1.0
 
         self.weights_sel_df = self.weights.reindex(self.records_df_selection.index)
@@ -334,8 +333,9 @@ class SampleStatistics:
             self.weights_sel_sum_agg, axis="index"
         )
 
-        # Als je selectie leeg is omdat binnen de groep geen enkel bedrijf aan de filter conditie
-        # voldoet, dan wordt de sum op nan gezet. Maak daar nu weer 0 van.
+        # If your selection is empty because no company within the group meets the filter condition
+        # is sufficient, then the sum is set to nan.
+        # Now make that 0 again.
         logger.debug(f"Fill nan's with 0")
         self.records_sum = self.records_sum.astype(float).fillna(0)
 
@@ -343,11 +343,10 @@ class SampleStatistics:
             for col_name in self.records_sum:
                 new_col = make_negation_name(col_name, self.negation_suffix)
                 logger.debug(f"Creating new negated column {new_col}")
-                # bepaal de som van de populatie. In het geval dat de populatie leeg is (wat kan
-                # voor gefilterde vragen, dan is de index van de som kleiner dan de records_sum
-                # daarom interpoleren we de index van de records_sum op populatie som zodat we beide
-                # items hebben en zetten de nan op 0. Hiermee zorgen we dat ook de negated variabele
-                # altijd bestaat, en 0 is als de populatie nul is
+                # Determine the sum of the population.
+                # For an empty population, the index of the records_sum is interpolated on the population sum,
+                # so that we have both items and set the nan to 0.
+                # This also ensures that the negated variable always exists, and 0 is if the population is zero
                 filter_sum = self.var_weights_sel_sum_agg.reindex(
                     self.records_sum.index
                 ).fillna(0)
@@ -418,14 +417,11 @@ class SampleStatistics:
             self.group_keys
         )
 
-        # Je kan aantonen dat deze proportie (berekend uit het gemiddelde van de fracties tussen
-        # 0 en 100 %) mathematisch niet (prices) hetzelfde is als de som van het aantal elementen
-        # gedeeld# door de som van het totaal. Om de uitvoer consistent te houden drukken we gewoon
-        # de laatste op. Maar voor het berekenen van de standaard error gebruiken we toch de fractie
-        # self.proportion_sel_mean_agg = self.proportion_sel_grp.sum()
-        # self.proportion_sel_mean_df = self.proportion_sel_grp.transform("sum")
-        # self.proportion_pop_mean_agg = self.proportion_pop_grp.sum()
-        # self.proportion_pop_mean_df = self.proportion_pop_grp.transform("sum")
+        # You can show that this proportion (calculated from the average of the fractions between
+        # 0 and 100 %) is mathematically different from the sum of the elements divided by the sum of the
+        # total.
+        # To keep the output consistent, we simply print the last one.
+        # But we still use the fraction to calculate the standard error
         self.proportion_sel_mean_agg = 100 * self.records_sum.div(
             self.var_weights_sel_sum_agg, axis="index"
         )
@@ -439,7 +435,7 @@ class SampleStatistics:
 
         if self.variance_df_selection is None:
             # for the first round (on the smallest strata, calculate the standard deviation based
-            # on the microdata sum_i (w_i * (x_i - xmean)**2)
+            # on the microdata sum_i (w_i * (x_i - x_mean)**2)
             # where w_i are the normalized weight for which by definition: sum_i w_i = 1
             mean_proportion = self.proportion_pop_grp.transform("sum")
             proportion_minus_mean = self.proportion_pop_df - mean_proportion
@@ -481,6 +477,6 @@ class SampleStatistics:
             )
             self.standard_error = self.standard_error.mul(fpc, axis="index")
         else:
-            # we got the standard error from the compound standard deviations. No need to divide by
-            # sqrt(n), as we used the w_i**2 terms already
+            # We got the standard error from the compound standard deviations.
+            # No need to divide by sqrt(n), as we used the w_i**2 terms already
             self.standard_error = self.records_std_agg
