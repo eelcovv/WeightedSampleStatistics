@@ -1,5 +1,5 @@
 """
-    Setup file for SampleStatistics.
+    Setup file for weighted_sample_statistics.
     Use setup.cfg to configure your project.
 
     This file was generated with PyScaffold 4.5.

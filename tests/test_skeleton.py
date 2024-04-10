@@ -1,6 +1,6 @@
 import pytest
 
-from samplestatistics.main import main
+from weighted_sample_statistics.main import main
 
 __author__ = "Eelco van Vliet"
 __copyright__ = "Eelco van Vliet"

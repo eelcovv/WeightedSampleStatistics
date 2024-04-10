@@ -17,7 +17,7 @@ import argparse
 import logging
 import sys
 
-from samplestatistics import __version__
+from weighted_sample_statistics import __version__
 
 __author__ = "Eelco van Vliet"
 __copyright__ = "Eelco van Vliet"
@@ -116,6 +116,6 @@ if __name__ == "__main__":
     # After installing your project with pip, users can also run your Python
     # modules as scripts via the ``-m`` flag, as defined in PEP 338::
     #
-    #     python -m SampleStatistics.skeleton 42
+    #     python -m WeightedSampleStatistics.skeleton 42
     #
     run()

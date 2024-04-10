@@ -1,5 +1,5 @@
 """
-Definition of SampleStatistics class to calculate weighted statistics
+Definition of weighted_sample_statistics class to calculate weighted weighted_sample_statistics
 """
 import logging
 import re
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class SampleStatistics:
     """
-    Calculate statistics for summations
+    Calculate weighted_sample_statistics for summations
 
     Parameters
     ----------
@@ -30,7 +30,7 @@ class SampleStatistics:
     all_records_df: DataFrame
         All the microdata including non-response
     column_list: iterable
-        list of columns to calculate statistics
+        list of columns to calculate weighted_sample_statistics
     scaling_factor_key: str
         Name of the weight variable
     var_type: str
@@ -273,13 +273,15 @@ class SampleStatistics:
         )
 
     def calculate_weighted_means(self):
-        """Calculate summed statistics
+        """Calculate summed weighted_sample_statistics
 
         Returns
         -------
         None
         """
-        logger.debug(f"Start calculation summed statistics for {self.column_list}")
+        logger.debug(
+            f"Start calculation summed weighted_sample_statistics for {self.column_list}"
+        )
         if "omzet_enq" in self.column_list:
             logger.debug("Stop hier")
 

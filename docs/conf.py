@@ -34,7 +34,7 @@ except ImportError:
     from sphinx import apidoc
 
 output_dir = os.path.join(__location__, "api")
-module_dir = os.path.join(__location__, "../src/samplestatistics")
+module_dir = os.path.join(__location__, "../src/weighted_sample_statistics")
 try:
     shutil.rmtree(output_dir)
 except FileNotFoundError:
@@ -87,7 +87,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "samplestatistics"
+project = "weighted_sample_statistics"
 copyright = "2024, Eelco van Vliet"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -99,7 +99,7 @@ copyright = "2024, Eelco van Vliet"
 # If you don’t need the separation provided between version and release,
 # just set them both to the same value.
 try:
-    from samplestatistics import __version__ as version
+    from weighted_sample_statistics import __version__ as version
 except ImportError:
     version = ""
 
@@ -226,7 +226,7 @@ html_static_path = ["_static"]
 # html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "samplestatistics-doc"
+htmlhelp_basename = "weighted_sample_statistics-doc"
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -246,7 +246,7 @@ latex_documents = [
     (
         "index",
         "user_guide.tex",
-        "samplestatistics Documentation",
+        "weighted_sample_statistics Documentation",
         "Eelco van Vliet",
         "manual",
     )
