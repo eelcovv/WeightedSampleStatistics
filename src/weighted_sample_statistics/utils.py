@@ -1,9 +1,13 @@
 """
 Some utility functions.
 """
+
 import logging
 import re
-from pandas import DataFrame, Series
+
+import numpy as np
+import pandas as pd
+from pandas import DataFrame
 
 logger = logging.getLogger(__name__)
 
@@ -419,3 +423,80 @@ def reorganise_stat_df(
         stat_df.sort_values([module_key, vraag_key, variable_key], axis=0, inplace=True)
     stat_df.set_index(index_variables, inplace=True, drop=True)
     return stat_df
+
+
+def get_filtered_data_column(dataframe, column, var_filter=None, output_format=None):
+    """
+    Verkrijg de (gefilterde) kolom uit de dataframe.
+
+    Parameters
+    ----------
+    dataframe: pd.DataFrame
+        Alle data
+    column: str
+        Naam van de kolom die we willen selecteren
+    var_filter: str of dict or None
+        Eventueel een filter als we op een andere kolom uit data frame willen filteren.
+        Als een dict gegeven is ziet het er zou uit::
+
+            filter:
+                statline: kolomnaam_voor_filter_voor_statline_output
+                eurostat: kolomnaam_voor_filter_voor_euro_output
+
+        Als statline of eurostat niet gegeven is aan nemen voor die output alle data (ongefilterd)
+
+    output_format: str
+        Naam van de huidige output format
+
+    Returns
+    -------
+    pd.DataFrame:
+        Datakolom die we willen gebruiken voor de statistiek
+
+    """
+    # hier wordt de colom data geselecteerd, eventueel gefiltered als een filter variable
+    # gegeven is.
+    if var_filter is None:
+        # zonder filter nemen we alle data
+        records_selection = dataframe.loc[:, [column]]
+    else:
+
+        if isinstance(var_filter, dict):
+            # er is een filter in de vorm van een dict, dus een verschillende entry voor
+            # eurostat en statline (keys zijn eurostat of statline). Probeer de filter variable
+            # te krijgen
+            logger.debug(
+                f"Trying to get filter variabele for {column} with {var_filter}"
+            )
+            try:
+                var_filt = var_filter[output_format]
+            except KeyError as err:
+                # Als de variable niet gegevens is in de dict nemen we alsnog alle data
+                var_filt = None
+        else:
+            # het filter is als een key: value gegeven, dus zet het filter voor alle ouputs
+            var_filt = var_filter
+
+        if var_filt is None:
+            # als var_filt hier None was hadden we een dict zonder entry voor deze output.
+            # Dan nemen we dus ale data
+            logger.debug(
+                f"No valid entry for {var_filter} in {column} for {output_format}. "
+                f"Take all data"
+            )
+            records_selection = dataframe.loc[:, [column]]
+        else:
+            try:
+                mask = dataframe[var_filt] == 1
+            except KeyError:
+                # Er is een var_filt gegeven, maar deze kolom bestaat niet. Waarschuw en sla over
+                logger.warning(
+                    f"KeyError for {column}: {var_filt}. Opgeven filter column bestaat "
+                    f"niet!"
+                )
+                records_selection = None
+            else:
+                # We hebben een mask bepaald op basis van het filter. Verkrijg nu de gefilterde data
+                records_selection = dataframe.loc[mask, [column]]
+
+    return records_selection
