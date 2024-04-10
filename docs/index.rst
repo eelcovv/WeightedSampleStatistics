@@ -1,6 +1,6 @@
-================
+==========================
 weighted_sample_statistics
-================
+==========================
 
 This is the documentation of **weighted_sample_statistics**.
 
