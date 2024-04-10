@@ -271,8 +271,8 @@ on PyPI_, the following steps can be used to release a new version for
 .. |the repository service| replace:: GitHub
 .. |contribute button| replace:: "Create pull request"
 
-.. _repository: https://github.com/eelcovv/weighted_sample_statistics
-.. _issue tracker: https://github.com/eelcovv/weighted_sample_statistics/issues
+.. _repository: https://github.com/eelcovv/WeightedSampleStatistics
+.. _issue tracker: https://github.com/eelcovv/WeightedSampleStatistics/issues
 .. <-- end -->
 
 
