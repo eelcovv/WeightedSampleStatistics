@@ -1,6 +1,6 @@
 import pytest
 
-from samplestatistics.skeleton import fib, main
+from samplestatistics.main import fib, main
 
 __author__ = "Eelco van Vliet"
 __copyright__ = "Eelco van Vliet"
