@@ -235,19 +235,25 @@ def get_records_select(
 
 
 def prepare_df_for_statistics(
-    dataframe, index_names, units_key, regional=None, region=None
+    dataframe, index_names, units_key="units", regional=None, region="nuts0"
 ) -> DataFrame:
-    """Prepare dataframe for statistics
+    """Prepare dataframe for the statistics calculation
 
     Args:
-        dataframe (DataFrame): the data frame to reorganise
-        index_names (list): the index names
-        units_key (str): name of the units column
-        regional (dict): the regional column
-        region (str): the name of the region column
+        dataframe (DataFrame): the data frame with a normal index and columns containing at least the dimensions
+        index_names (list): the index names to use for your statistical breakdown
+        units_key (str, optional): name of the unity column. This column is added to your dataframe. Defaults to 'units'
+        regional (dict, optional): the regional column names to use for your statistical breakdown. Defaults to None.
+        region (str, options): The name of the region in case we want to select on regional data. Defaults to "nuts0",
+            which is the whole country as a region
 
     Returns:
-        dataframe: DataFrame
+        DataFrame: The new data frame with statistical breakdown on the index
+
+    Notes:
+        * This function modifies your dataframe in orde to set the breakdown on the index.
+        * In case a region is passed, also a filter on the required region is applied.
+
     """
     if regional is None or regional == "nuts0":
         dataframe = dataframe.copy().reset_index()
@@ -258,11 +264,11 @@ def prepare_df_for_statistics(
     # output
     # plus always the be_id if that was not yet added to the group_keys
     # make sure to copy group_keys
-    # Therefore add the index in tuples to the index names
+    # Add the index in tuples to the index names
     mi = [ll for ll in index_names]
     dataframe.set_index(mi, inplace=True, drop=True)
-    # the index names now still have the tuples of mi. Change that back to the normal
-    # names
+    # The index names now still have the tuples of mi.
+    # Change that back to the normal names
     dataframe.index.rename(index_names, inplace=True)
     # gooi alle niet valide indices eruit
     dataframe = dataframe.reindex(dataframe.index.dropna())
