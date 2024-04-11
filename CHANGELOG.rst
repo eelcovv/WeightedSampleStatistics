@@ -2,6 +2,10 @@
 Changelog
 =========
 
+Version 0.1.2
+=============
+- Changed name run method to calculate
+
 Version 0.1.1
 =============
 
