@@ -72,7 +72,7 @@ class WeightedSampleStatistics:
         add_inverse=False,
         report_numbers=False,
         negation_suffix=None,
-        run=False,
+        start=False,
     ):
         self.group_keys = group_keys
         self.records_df_selection = records_df_selection
@@ -179,10 +179,10 @@ class WeightedSampleStatistics:
         self.unit_weights_sel_sum_agg = None
         self.unit_weights_pop_sum_agg = None
 
-        if run:
-            self.run()
+        if start:
+            self.calculate()
 
-    def run(self):
+    def calculate(self):
 
         self.set_mask_valid_df()
 
