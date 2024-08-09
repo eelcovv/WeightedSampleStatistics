@@ -4,7 +4,7 @@ import sys
 import pandas as pd
 import yaml
 import codecs
-from impute_gaps import ImputeGaps
+from imputegaps.impute_gaps import ImputeGaps
 
 __author__ = "EMSK"
 __copyright__ = "EMSK"
@@ -24,12 +24,12 @@ def parse_args(args):
       :obj:`argparse.Namespace`: command line parameters namespace
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--records_df", default=None)
+    parser.add_argument("records_df", default=None)
     parser.add_argument("--variables", default=None)
     parser.add_argument("--impute_settings", default=None)
-    parser.add_argument("--sbi_key", default=None)
-    parser.add_argument("--gk_key", default=None)
-    parser.add_argument("--be_id", default=None)
+    parser.add_argument("--group_by", default=None)
+    parser.add_argument("--id", default=None)
+    parser.add_argument("--loglevel", default=None)
     return parser.parse_args(args)
 
 
@@ -49,65 +49,37 @@ def main(args):
     """
     doc here
     """
-    args = parse_args(args)
-    # setup_logging(args.loglevel)
+
     _logger.debug("Starting class ImputeGaps.")
 
-    # Bestanden inlezen
-    records_df = pd.read_csv(args.records_df)
-    lst = []
-    zzp = [
-        "zzp_zijn",
-        "zzp_openbare_wifi",
-        "zzp_zelfde_apparaten",
-        "zzp_uur",
-        "zzp_omzet",
-        "zzp_voorzieningen_opdrachtgever",
-        "zzp_tijd_voorzieningen_opdrachtgever",
-        "zzp_aantal_opdrachtgever",
-        "zzp_wie_ict_veiligheid",
-        "zzp_omzet_helft_opdrachtgever",
-    ]
-    for col in records_df.columns:
-        df = records_df[col]
-        if df.isnull().sum() > 0 and col not in zzp:
-            lst = lst + [col]
+    # Get command line arguments and set up logging
+    args = parse_args(args)
+    setup_logging(args.loglevel)
 
-    records_df = records_df[[args.sbi_key] + [args.gk_key] + [args.be_id] + lst]
+    # Read input files
+    records_df = pd.read_csv(args.records_df, sep=';')
+    variables = pd.read_csv(args.variables, sep=';')
+    id_key = args.id
 
-    variables = pd.read_csv(args.variables)
+    # Read settings file
     with codecs.open(args.impute_settings, "r", encoding="UTF-8") as stream:
         impute_settings = yaml.load(stream=stream, Loader=yaml.Loader)["general"][
-            "impute_options"
+            "imputation"
         ]
 
-    # Variables opschonen (als dict, kies 'statline')
-    for i in range(variables.shape[0]):
-        filter = variables.loc[i, "filter"]
-        try:
-            filter = eval(filter)["statline"]
-        except NameError:
-            filter = filter
-        except TypeError:
-            continue
-        if filter == "nan":
-            filter = None
-        variables.loc[i, "filter"] = filter
-
-    variables = variables[["Unnamed: 0", "type", "no_impute", "filter"]]
-    variables.set_index("Unnamed: 0", inplace=True)
+    # Convert variables to dictionary
+    variables.set_index("naam", inplace=True)
     variables = variables.to_dict("index")
 
+    # Start class ImputeGaps
     ImputeGaps(
         records_df,
         variables,
         impute_settings,
-        sbi_key=args.sbi_key,
-        gk6_label=args.gk_key,
-        be_id=args.be_id,
+        id_key=id_key
     )
 
-    _logger.info("ImputeGaps has finished.")
+    _logger.info("Class ImputeGaps has finished.")
 
 
 def run():

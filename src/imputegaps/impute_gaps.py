@@ -1,259 +1,301 @@
 import logging
 import pandas as pd
 import numpy as np
+import warnings
 
 logger = logging.getLogger(__name__)
 
 
 class ImputeGaps:
     """
-    add documentation here
+    Initializes the ImputeGaps object.
+
+    Arguments
+    ----------
+    records_df: pd.DataFrame
+        DataFrame containing variables with missing values.
+    variables: dict
+        Dictionary with information about the variables to impute.
+    impute_settings: dict
+        Dictionary with imputation settings.
+    id_key: String
+        Name of the variable by which a record is identified (e.g. be_id)
+
+    Notes
+    ----------
+    *   De dictionary 'variables' is in principe de pd.DataFrame 'self.variables' uit de ICT analyser, geconverteerd
+        naar een dictionary. Als preprocessing stap moet hierbij de kolom 'filter' zijn platgeslagen, oftewel: het mag
+        geen dictionary meer zijn. De dictionary 'variables' moet ten minste de volgende kolommen bevatten:
+        [["type", "no_impute", "filter"]], met optioneel: "impute_only".
+    *   De dict 'impute_settings' is een nieuw kopje onder 'General' in de settingsfile. Een belangrijk subkopje is
+        'group_by', wat er zo kan uitzien:
+         group_by: "sbi_digit2, gk6_label; gk6_label"
+        Dit betekent dat er eerst wordt geïmputeerd in strata o.b.v. sbi_digit2 en gk6_label. Als dat niet lukt, wordt
+        alleen geïmputeerd o.b.v. gk6_label. Op dezelfde manier kunnen meer opties worden toegevoegd.
     """
 
     def __init__(
-        self,
-        records_df=None,
-        variables=None,
-        impute_settings=None,
-        sbi_key=None,
-        gk6_label=None,
-        be_id=None,
+        self, records_df=None, variables=None, impute_settings=None, id_key=None
     ):
 
         self.records_df = records_df
+        self.original_indices = self.records_df.index.names
         self.variables = variables
         self.impute_settings = impute_settings
-        self.sbi_key = sbi_key
-        self.gk6_label = gk6_label
-        self.be_id = be_id
+        self.id = id_key
+        self.group_by = self.impute_settings["group_by"].split("; ")
 
         self.impute_gaps()
 
-    # TODO: Kopiëren uit ICT analyser?
-    def create_multi_index(dataframe, index_label, mi_labels) -> pd.DataFrame:
-        """
-        Create a multindex for the dataframe based on the mi_labels
+    def fill_missing_data(self, col, how) -> pd.DataFrame:
+        """Impute missing values for one variable of a particular stratum (subset)
 
         Parameters
         ----------
-        dataframe: Dataframe
-            Dataframe for which the multiindex should be amde
-        index_label: str
-            label of the current index
-        mi_labels: list
-            List of strings with the new multi index labels
-
-        """
-
-        new_df = dataframe.reset_index().copy()
-        new_df = new_df.rename(columns={"index": index_label})
-        new_df = new_df.set_index(mi_labels, drop=True)
-        new_df = new_df.sort_index(axis=0)
-        new_df.index = new_df.index.rename(mi_labels)
-        return new_df.copy()
-
-    def fill_missing_data(self, df, how) -> pd.DataFrame:
-        """The nan's  in the data frame are filled with random picks from the valid data in a column
-
-        Parameters
-        ----------
-        dataframe: DataFrame
-            Dataframe with the data to correct
-        how: {"mean", "median", "pick"}
-            How to fill the gaps.jjj
+        col: pd.Series
+            pd.Series with one column that contains missing values.
+        how: String {"mean", "median", "pick", "nan", "pick1"},
+            Method that should be used to fill the missing values;
+            - mean: Impute with the mean
+            - median: Impute with the median
+            - pick: Impute with a random value (for categorical variables)
+            - nan: Impute with the value 0
+            - pick1: Impute with the value 1
 
         Returns
         -------
-        ds: pd.DataFrame
-            Filled data frame
+        imputed_col: pd.Series
+            pd.Series with imputed values.
         """
-        ds = df.copy()
+        imputed_col = col.copy()
 
-        # create a mask with the size of a column with True at all nan locations
-        mask = ds.isnull()
+        # Create a mask with the size of a column with True for all missing values
+        mask = imputed_col.isnull()
 
+        # Skip if there are no missing values
         if not mask.any():
-            return ds
+            return imputed_col
 
+        # Fill missing values depending on which method to use
         if how == "mean":
-            samples = np.full(mask.size, fill_value=ds.mean())
+            # TODO: Kijk naar warning
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                samples = np.full(mask.size, fill_value=imputed_col.mean())
         elif how == "median":
-            samples = np.full(mask.size, fill_value=ds.median())
-        elif how == "nan":
-            samples = np.full(ds.isnull().sum(), fill_value=0)
-        elif how == "pick1":
-            samples = np.full(ds.isnull().sum(), fill_value=1)
+            samples = np.full(mask.size, fill_value=imputed_col.median())
+        elif how == "mode":
+            # Try to obtain mode
             try:
-                if samples.size > 1:
-                    ds[mask] = samples
-                else:
-                    ds.loc[mask] = samples
-                return ds
-            except TypeError:
-                samples = np.full(ds.isnull().sum(), fill_value="1.0")
-                if samples.size > 1:
-                    ds[mask] = samples
-                else:
-                    ds.loc[mask] = samples
-                return ds
+                fill_val = imputed_col.mode()[0]
+            # Mode cannot be obtained when all values in that stratum are missing
+            except KeyError:
+                fill_val = np.nan
+            samples = np.full(mask.size, fill_value=fill_val)
+        elif how == "nan":
+            # For categorical variables: if the entire stratum has missing values, 0 cannot be imputed because it does
+            # not exist as a category. If that is the case, add 0 to the list of categories, so it can be imputed.
+            if len(imputed_col.cat.categories) == 0:
+                imputed_col = imputed_col.cat.add_categories(0)
+            samples = np.full(imputed_col.isnull().sum(), fill_value=0)
+        elif how == "pick1":
+            # For categorical variables: if the entire stratum has missing values, 1 cannot be imputed because it does
+            # not exist as a category. If that is the case, add 1 to the list of categories, so it can be imputed.
+            if len(imputed_col.cat.categories) == 0:
+                imputed_col = imputed_col.cat.add_categories(1)
+            # Let pick1 work with values that are '1 and 0'.
+            if 1 in imputed_col.cat.categories or 0 in imputed_col.cat.categories:
+                samples = np.full(imputed_col.isnull().sum(), fill_value=1)
+            # Let pick1 work with values that are '1.0 and 0.0'.
+            elif (
+                "1.0" in imputed_col.cat.categories
+                or "0.0" in imputed_col.cat.categories
+            ):
+                samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
         elif how == "pick":
             number_of_nans = mask.sum()
-            valid_values = ds[~mask].values
-            if valid_values.size == 0:
-                # return ds met dus nog een lege, maar in de volgende stap deze zelfde ds weer proberen
-                return ds
-            samples = np.random.choice(valid_values, size=number_of_nans, replace=True)
+            valid_values = imputed_col[~mask].values.categories
+            if (
+                valid_values.size == 0
+                and len(imputed_col[~mask].values.categories) == 0
+            ):
+                return imputed_col
+            else:
+                valid_values = imputed_col[~mask].values.categories
+                samples = np.random.choice(
+                    valid_values, size=number_of_nans, replace=True
+                )
         else:
-            raise ValueError(
-                "Not a valid choice for how {}. Should be mean, median or pick"
-                "".format(how)
-            )
-
-        # copy the samples to the nan values in the column
+            raise ValueError("Not a valid choice for how {}.".format(how))
+        # Fill the missing values with the values from samples
         if samples.size > 1:
-            ds[mask] = samples
+            imputed_col[mask] = samples
         else:
-            ds.loc[mask] = samples
-        return ds
+            imputed_col.loc[mask] = samples
+        return imputed_col
 
     def impute_gaps(self) -> None:
+        """
+        Impute all missing values in a dataframe.
 
+        Returns
+        -------
+        None
+        """
+
+        # Make sure that all possible variables for group by are set as index
         self.records_df = self.records_df.reset_index().copy()
+        indices = [i.split(", ") for i in self.group_by]
+        indices = list(dict.fromkeys([item for sublist in indices for item in sublist]))
+        new_index = [self.id] + indices
+        self.records_df.set_index(new_index, inplace=True)
 
-        # TODO: Grouping generieker maken
-        self.records_df.set_index(
-            [self.sbi_key, self.gk6_label, self.be_id], inplace=True
-        )
-
-        # Itereer over kolommen (variabelen)
+        # Iterate over variables
         for col_name in self.records_df.columns:
-
-            # Check of er informatie is over de variabele
+            # Check if there is information available about the variable
             try:
                 var_type = self.variables[col_name]["type"]
             except KeyError as err:
                 logger.info(f"Geen variabele info voor: {col_name}, {err}")
                 continue
 
-            # Check of variabele op 'no_impute' staat
-            skip_impute = self.variables[col_name]["no_impute"]
-            if skip_impute:
+            # Check if the variable has a 'no_impute' flag or if its type should not be imputed
+            if (
+                self.variables[col_name]["no_impute"]
+                or var_type in self.impute_settings["imputation_methods"]["skip"]
+            ):
                 logger.info(
-                    "Skipping imputing variable {} of var type {}".format(
+                    "Skip imputing variable {} of var type {}".format(
                         col_name, var_type
                     )
                 )
                 continue
 
-            # Check of variabele van een type is dat geskipt moet worden
-            if var_type in self.impute_settings["skip"]:
-                logger.debug(
-                    "Skipping imputing variable {} of var type {}".format(
-                        col_name, var_type
-                    )
-                )
-                continue
+            # Variabele to impute
+            col_to_impute = self.records_df[col_name]
 
-            logger.info("Impute gaps {:20s} ({})".format(col_name, var_type))
-            logger.debug("Imputing variable {}".format(col_name))
-
-            # Variabele om te imputeren
-            df = self.records_df[col_name]
-
-            # For the dictionaries, first convert the columns to corresponding categories.
-            if var_type in self.impute_settings["pick1"]:
-                how = "pick1"
-            elif var_type in self.impute_settings["nan"]:
-                how = "nan"
+            # Get filter(s) if provided
+            if self.variables[col_name]["impute_only"] is None:
+                var_filter = self.variables[col_name]["filter"]
             else:
-                how = "mean"
-            logger.debug(f"Fill gaps by taking the {how} of the valid values")
+                var_filter = self.variables[col_name]["impute_only"]
 
-            def fill_gaps(x):
-                return self.fill_missing_data(x, how=how)
-
-            var_filter = self.variables[col_name]["filter"]
-            # Indien gevuld selecteer dan alleen data achter filter
-            if var_filter is not np.nan:
-                try:
-                    filter_mask = self.records_df[var_filter]
-                except KeyError as err:
-                    logger.warning(f"Failed to filter with {var_filter}, {err}")
+            # If a filter is provided, use it to filter the records
+            if var_filter is not np.nan and var_filter is not None:
+                # Apply filter with a variable that is also one of the index variables
+                if var_filter in col_to_impute.index.names:
+                    try:
+                        col_to_impute = col_to_impute[
+                            col_to_impute.index.get_level_values(var_filter) == 1
+                        ]
+                    except KeyError as err:
+                        logger.warning(f"Failed to filter with {var_filter}, {err}")
+                # Apply filter with a regular variable
                 else:
-                    df = df.loc[filter_mask == 1]
+                    try:
+                        filter_mask = self.records_df[var_filter]
+                    except KeyError as err:
+                        logger.warning(f"Failed to filter with {var_filter}, {err}")
+                    else:
+                        col_to_impute = col_to_impute.loc[filter_mask == 1]
 
-            n_nans1 = df.isnull().sum()
+            # Compute number of missing values
+            n_nans = n_nans1 = col_to_impute.isnull().sum()
 
+            # Skip if there are no missing values
             if n_nans1 == 0:
                 logger.debug(
                     "Skip imputing {}. It has no invalid numbers".format(col_name)
                 )
                 continue
 
-            frc = n_nans1 / df.size
+            logger.info("Impute gaps {:20s} ({})".format(col_name, var_type))
+            logger.debug("Imputing variable {}".format(col_name))
             logger.debug(
                 "Filling {} with {} / {} nans ({:.1f} %)"
-                "".format(col_name, n_nans1, df.size, frc * 100)
+                "".format(
+                    col_name,
+                    n_nans1,
+                    col_to_impute.size,
+                    (n_nans1 / col_to_impute.size) * 100,
+                )
             )
 
-            # TODO: Iets met deze keys
-            grouped_sbi_gk = df.groupby(
-                [self.sbi_key, self.gk6_label], group_keys=False
-            )
+            # Get which imputing method to use
+            imputation_dict = self.impute_settings["imputation_methods"]
+            not_none = [
+                i for i in imputation_dict.keys() if imputation_dict[i] is not None
+            ]
+            for key, val in imputation_dict.items():
+                if key in not_none and var_type in imputation_dict[key]:
+                    how = key
+                    # Convert categorical (dict) variables to categorical
+                    if var_type == "dict":
+                        col_to_impute = col_to_impute.astype("category")
+                    continue
 
-            try:
-                result_sbi_gk = grouped_sbi_gk.apply(fill_gaps)
-            except (TypeError, ValueError):
-                logger.warning(
-                    "Failed imputing gaps for {} with apply. Try again per group"
-                    "".format(col_name)
-                )
-                result_sbi_gk = None
+            if how is None:
+                logger.warning("Imputation method not found!")
+            else:
+                logger.debug(f"Fill gaps by taking the {how} of the valid values")
 
-            if result_sbi_gk is None or (
-                result_sbi_gk is not None and result_sbi_gk.isnull().sum() > 0
-            ):
-                # failed to group. Try to group by size class only
-                logger.debug(
-                    "Could not fill completely based only on sbi/gk. "
-                    "Fill the remaining gaps with gk6 means"
-                )
-                grouped_gk = df.groupby([self.gk6_label], group_keys=False)
+            def fill_gaps(col):
+                """
+                Impute missing values for one variable for a particular subset (aka stratum)
 
-                # om te voorkomen dat we de volledige imputatie van een breakdown op basis van sbi
-                # doen, ook als er maar 1 NA is, is het beter om alleen de NA met een grovere
-                # imputatie te vullen
-                try:
-                    result_gk = grouped_gk.apply(fill_gaps)
-                # TODO: Uitzoeken waarom dit kan mislukken
-                except (TypeError, ValueError):
+                Parameters
+                ----------
+                col: pd.Series
+                    pd.Series with one column that contains missing values.
+
+                Returns
+                -------
+                imputed_col: pd.Series
+                    pd.Series with imputed values.
+                """
+                imputed_col = self.fill_missing_data(col, how=how)
+                return imputed_col
+
+            # Iterate over the variables in the group_by-list and try to impute until there are no more missing values
+            n_iterations = 0
+            while n_nans1 > 0 and n_iterations < len(self.group_by):
+                group_keys = self.group_by[n_iterations].split(", ")
+                df_grouped = col_to_impute.groupby(
+                    group_keys, group_keys=False
+                )  # Do group by
+                col_to_impute = df_grouped.apply(fill_gaps)  # Impute missing values
+                n_nans1 = col_to_impute.isnull().sum()  # Count remaining missing values
+                n_iterations += 1
+            else:
+                if n_nans == n_nans1 and n_nans > 0:
                     logger.warning(
-                        "Also failed imputing gaps by size class for {}".format(
-                            col_name
+                        "Failed imputing any gap for {}: {} gaps imputed and {} gaps remaining."
+                        "".format(col_name, n_nans - n_nans1, n_nans)
+                    )
+                elif n_nans1 > 0:
+                    logger.warning(
+                        "Failed imputing some gaps for {}: {} gaps imputed and {} gaps remaining. "
+                        "".format(col_name, n_nans - n_nans1, n_nans1)
+                    )
+                elif n_nans1 == 0:
+                    logger.warning(
+                        "Successfully finished imputing all {}/{} = {} gaps for {}."
+                        "".format(
+                            n_nans,
+                            col_to_impute.size,
+                            n_nans / col_to_impute.size,
+                            col_name,
                         )
                     )
-                else:
-                    # voor alle posities die we niet met de sbi/gk mean hebben kunnen vullen, vullen
-                    # we nu met de gk6
-                    if result_sbi_gk is None:
-                        result_sbi_gk = result_gk
-                    else:
-                        # vul alleen de waardes van de grovere breakdown waar we eerde na hadden
-                        mask = result_sbi_gk.isnull()
-                        result_sbi_gk[mask] = result_gk[mask]
 
-            self.records_df[col_name] = result_sbi_gk
+            # Replace original column by imputed column
+            self.records_df[col_name] = col_to_impute
 
-            if result_sbi_gk is not None:
-                n_nans2 = result_sbi_gk.isnull().sum()
-                logger.debug(
-                    "Variable {}: filled {} -> {}".format(col_name, n_nans1, n_nans2)
-                )
-            else:
-                logger.warning(f"Failed filling for {col_name}")
+        # Set original indices back
+        self.records_df = self.records_df.copy()
+        self.records_df.reset_index(inplace=True)
+        if None not in self.original_indices:
+            self.records_df.set_index(self.original_indices, inplace=True)
+            logger.info("Set index {}.".format(self.original_indices))
 
-        logger.info("create multiindex")
-        self.records_df = self.create_multi_index(
-            self.records_df, self.be_id, self.mi_labels
-        )
         logger.info("Done")
