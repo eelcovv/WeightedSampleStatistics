@@ -83,7 +83,9 @@ class ImputeGaps:
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 samples = np.full(mask.size, fill_value=imputed_col.mean())
         elif how == "median":
-            samples = np.full(mask.size, fill_value=imputed_col.median())
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                samples = np.full(mask.size, fill_value=imputed_col.median())
         elif how == "mode":
             # Try to obtain mode
             try:
