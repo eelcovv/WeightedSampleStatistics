@@ -78,7 +78,6 @@ class ImputeGaps:
 
         # Fill missing values depending on which method to use
         if how == "mean":
-            # TODO: Kijk naar warning
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 samples = np.full(mask.size, fill_value=imputed_col.mean())
@@ -95,10 +94,6 @@ class ImputeGaps:
                 fill_val = np.nan
             samples = np.full(mask.size, fill_value=fill_val)
         elif how == "nan":
-            # For categorical variables: if the entire stratum has missing values, 0 cannot be imputed because it does
-            # not exist as a category. If that is the case, add 0 to the list of categories, so it can be imputed.
-            if len(imputed_col.cat.categories) == 0:
-                imputed_col = imputed_col.cat.add_categories(0)
             samples = np.full(imputed_col.isnull().sum(), fill_value=0)
         elif how == "pick1":
             # For categorical variables: if the entire stratum has missing values, 1 cannot be imputed because it does
