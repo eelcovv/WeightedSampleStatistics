@@ -1,0 +1,6 @@
+pandas~=2.2.2
+PyYAML~=6.0.2
+imputegaps~=0.0.post1.dev6+gf52da40.d20240902
+numpy~=2.1.0
+pytest~=8.3.2
+setuptools~=70.0.0

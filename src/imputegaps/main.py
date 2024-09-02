@@ -57,8 +57,8 @@ def main(args):
     setup_logging(args.loglevel)
 
     # Read input files
-    records_df = pd.read_csv(args.records_df, sep=';')
-    variables = pd.read_csv(args.variables, sep=';')
+    records_df = pd.read_csv(args.records_df, sep=";")
+    variables = pd.read_csv(args.variables, sep=";")
     id_key = args.id
 
     # Read settings file
@@ -72,12 +72,7 @@ def main(args):
     variables = variables.to_dict("index")
 
     # Start class ImputeGaps
-    ImputeGaps(
-        records_df,
-        variables,
-        impute_settings,
-        id_key=id_key
-    )
+    ImputeGaps(records_df, variables, impute_settings, id_key=id_key)
 
     _logger.info("Class ImputeGaps has finished.")
 
