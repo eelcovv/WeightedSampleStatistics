@@ -1,19 +1,8 @@
-import pytest
-
-from imputegaps.skeleton import fib, main
+from imputegaps.main import main
 
 __author__ = "EMSK"
 __copyright__ = "EMSK"
 __license__ = "MIT"
-
-
-def test_fib():
-    """API Tests"""
-    assert fib(1) == 1
-    assert fib(2) == 1
-    assert fib(7) == 13
-    with pytest.raises(AssertionError):
-        fib(-10)
 
 
 def test_main(capsys):
