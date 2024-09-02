@@ -1,9 +1,11 @@
 import argparse
+import codecs
 import logging
 import sys
+
 import pandas as pd
 import yaml
-import codecs
+
 from imputegaps.impute_gaps import ImputeGaps
 
 __author__ = "EMSK"
