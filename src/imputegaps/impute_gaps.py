@@ -96,29 +96,30 @@ class ImputeGaps:
         elif how == "nan":
             samples = np.full(imputed_col.isnull().sum(), fill_value=0)
         elif how == "pick1":
-            # For categorical variables: if the entire stratum has missing values, 1 cannot be imputed because it does
-            # not exist as a category. If that is the case, add 1 to the list of categories, so it can be imputed.
-            if len(imputed_col.cat.categories) == 0:
-                imputed_col = imputed_col.cat.add_categories(1)
-            # Let pick1 work with values that are '1 and 0'.
-            if 1 in imputed_col.cat.categories or 0 in imputed_col.cat.categories:
-                samples = np.full(imputed_col.isnull().sum(), fill_value=1)
             # Let pick1 work with values that are '1.0 and 0.0'.
-            elif (
-                "1.0" in imputed_col.cat.categories
-                or "0.0" in imputed_col.cat.categories
-            ):
-                samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
+            try:
+                valid_values = imputed_col.cat.categories
+                if "1.0" in valid_values:
+                    samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
+                elif "0.0" in valid_values:
+                    imputed_col = imputed_col.cat.add_categories("1.0")
+                    samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
+                elif 1 in valid_values:
+                    samples = np.full(imputed_col.isnull().sum(), fill_value=1)
+                else:
+                    imputed_col = imputed_col.cat.add_categories(1)
+                    samples = np.full(imputed_col.isnull().sum(), fill_value=1)
+            except AttributeError:
+                if "1.0" in imputed_col[~mask].values:
+                    samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
+                else:
+                    samples = np.full(imputed_col.isnull().sum(), fill_value=1)
         elif how == "pick":
             number_of_nans = mask.sum()
-            valid_values = imputed_col[~mask].values.categories
-            if (
-                valid_values.size == 0
-                and len(imputed_col[~mask].values.categories) == 0
-            ):
+            valid_values = imputed_col[~mask].values
+            if valid_values.size == 0:
                 return imputed_col
             else:
-                valid_values = imputed_col[~mask].values.categories
                 samples = np.random.choice(
                     valid_values, size=number_of_nans, replace=True
                 )
