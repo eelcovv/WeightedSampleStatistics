@@ -1,14 +1,12 @@
-from imputegaps.main import main
+import pytest
+from imputegaps.impute_gaps import ImputeGaps
 
 __author__ = "EMSK"
 __copyright__ = "EMSK"
 __license__ = "MIT"
 
 
-def test_main(capsys):
-    """CLI Tests"""
-    # capsys is a pytest fixture that allows asserts against stdout/stderr
-    # https://docs.pytest.org/en/stable/capture.html
-    main(["7"])
-    captured = capsys.readouterr()
-    assert "The 7-th Fibonacci number is 13" in captured.out
+def test_failed_imputegaps():
+    """API Tests"""
+    with pytest.raises(AttributeError):
+        test_obj = ImputeGaps()
