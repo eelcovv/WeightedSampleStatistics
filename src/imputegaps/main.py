@@ -68,7 +68,7 @@ def main(args):
         ]
 
     # Convert variables to dictionary
-    variables.set_index("naam", inplace=True)
+    # variables.set_index("naam", inplace=True)
     variables = variables.to_dict("index")
 
     # Start class ImputeGaps

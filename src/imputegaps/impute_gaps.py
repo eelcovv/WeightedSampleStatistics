@@ -35,7 +35,7 @@ class ImputeGaps:
     """
 
     def __init__(
-        self, records_df=None, variables=None, impute_settings=None, id_key=None
+            self, records_df=None, variables=None, impute_settings=None, id_key=None
     ):
 
         self.records_df = records_df
@@ -101,7 +101,7 @@ class ImputeGaps:
                 valid_values = imputed_col.cat.categories
                 if "1.0" in valid_values:
                     samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
-                elif "0.0" in valid_values:
+                elif valid_values.dtype == 'object':
                     imputed_col = imputed_col.cat.add_categories("1.0")
                     samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
                 elif 1 in valid_values:
@@ -113,8 +113,10 @@ class ImputeGaps:
                 if "1.0" in imputed_col[~mask].values:
                     samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
                 else:
-                    samples = np.full(imputed_col.isnull().sum(), fill_value=1)
+                    samples = np.full(imputed_col.isnull().sum(), fill_value=1.0)
         elif how == "pick":
+            if self.impute_settings["set_seed"] is not None:
+                np.random.seed(self.impute_settings["set_seed"])
             number_of_nans = mask.sum()
             valid_values = imputed_col[~mask].values
             if valid_values.size == 0:
@@ -159,8 +161,8 @@ class ImputeGaps:
 
             # Check if the variable has a 'no_impute' flag or if its type should not be imputed
             if (
-                self.variables[col_name]["no_impute"]
-                or var_type in self.impute_settings["imputation_methods"]["skip"]
+                    self.variables[col_name]["no_impute"]
+                    or var_type in self.impute_settings["imputation_methods"]["skip"]
             ):
                 logger.info(
                     "Skip imputing variable {} of var type {}".format(
@@ -171,6 +173,7 @@ class ImputeGaps:
 
             # Variabele to impute
             col_to_impute = self.records_df[col_name]
+            start_type = col_to_impute.dtype
 
             # Get filter(s) if provided
             if self.variables[col_name]["impute_only"] is None:
@@ -185,7 +188,7 @@ class ImputeGaps:
                     try:
                         col_to_impute = col_to_impute[
                             col_to_impute.index.get_level_values(var_filter) == 1
-                        ]
+                            ]
                     except KeyError as err:
                         logger.warning(f"Failed to filter with {var_filter}, {err}")
                 # Apply filter with a regular variable
@@ -287,11 +290,12 @@ class ImputeGaps:
                     )
 
             # Replace original column by imputed column
-            self.records_df[col_name] = col_to_impute
+            self.records_df[col_name] = col_to_impute.astype(start_type)
 
         # Set original indices back
         self.records_df = self.records_df.copy()
         self.records_df.reset_index(inplace=True)
+
         if None not in self.original_indices:
             self.records_df.set_index(self.original_indices, inplace=True)
             logger.info("Set index {}.".format(self.original_indices))
