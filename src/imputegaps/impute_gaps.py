@@ -11,7 +11,7 @@ class ImputeGaps:
     Initializes the ImputeGaps object.
 
     Arguments
-    ----------
+    ---------
     records_df: pd.DataFrame
         DataFrame containing variables with missing values.
     variables: dict
