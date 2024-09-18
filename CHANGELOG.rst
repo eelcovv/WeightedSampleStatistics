@@ -2,7 +2,8 @@
 Changelog
 =========
 
-Version 0.1.2
+Version 0.1.3
 =============
 
 - initial version
+- installatietest
