@@ -52,6 +52,7 @@ MANIFEST
 
 # Per-project virtualenvs
 .venv*/
+.direnv*/
 .conda*/
 .python-version
 
@@ -59,3 +60,5 @@ MANIFEST
 /examples/*.csv
 /examples/*.R
 /examples/temp
+*pid
+/gen-config
