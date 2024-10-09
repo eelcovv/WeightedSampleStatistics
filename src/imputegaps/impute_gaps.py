@@ -243,13 +243,17 @@ class ImputeGaps:
             not_none = [
                 i for i in imputation_dict.keys() if imputation_dict[i] is not None
             ]
-            for key, val in imputation_dict.items():
-                if key in not_none and var_type in imputation_dict[key]:
-                    how = key
-                    # Convert categorical (dict) variables to categorical
-                    if var_type == "dict":
-                        col_to_impute = col_to_impute.astype("category")
-                    continue
+
+            if not pd.isna(self.variables[col_name]["impute_method"]):
+                how = self.variables[col_name]["impute_method"]
+            else:
+                for key, val in imputation_dict.items():
+                    if key in not_none and var_type in imputation_dict[key]:
+                        how = key
+                        # Convert categorical (dict) variables to categorical
+                        if var_type == "dict":
+                            col_to_impute = col_to_impute.astype("category")
+                        continue
 
             if how is None:
                 logger.warning("Imputation method not found!")

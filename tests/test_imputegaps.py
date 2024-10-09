@@ -236,6 +236,32 @@ def test_failed_imputegaps():
         test_obj = ImputeGaps()
 
 
+def test_dict_pick():
+    """
+     var_type: float
+     missing: 1
+     imputatie: o.b.v. sbi x gk
+     methode: median
+    """
+    # Maak data
+    impute_settings, id_key = get_init_pick()
+    records_df = pd.DataFrame([
+            [1, 1, 'A', '10', 1], [2, 1, 'A', '10', 1], [3, 1, 'A', '10', 1], [4, 1, 'A', '10', 1],
+            [1, 1, 'A', '10', 2], [2, 1, 'A', '10', 2], [3, 1, 'A', '10', 2], [4, 1, 'A', '10', 2],
+            [1, 1, 'A', '10', None], [2, 1, 'A', '10', None], [3, 1, 'A', '10', None], [4, 1, 'A', '10', None]
+        ],
+        columns=['be_id', 'internet', 'sbi', 'gk', 'telewerkers'])
+    variables = {'telewerkers': {'type': 'dict', 'no_impute': False, 'no_impute': None, 'filter': None, 'impute_only': None}}
+
+    # Run ImputeGaps
+    test = ImputeGaps(records_df, variables, impute_settings, id_key)
+
+    # Maak verwacht
+    expected = pd.Series([float(1),1,1,1,2,2,2,2,2,1,2,1], copy=False, name='telewerkers')
+
+    # Test uitvoeren
+    pd.testing.assert_series_equal(test.records_df['telewerkers'], expected)
+
 def test_float_median_p1():
     """
     var_type: float
@@ -1371,3 +1397,28 @@ def test_index_pick_p1():
 
     # Test uitvoeren
     pd.testing.assert_series_equal(test.records_df["telewerkers"], expected)
+
+def test_impute_method():
+    """
+     var_type: bool
+     missing: 1
+     imputatie: o.b.v. sbi x gk
+     methode: nan
+    """
+    # Maak data
+    impute_settings, id_key = get_init_pick()
+    records_df = pd.DataFrame(
+        [[1, 1, 'A', '10', None], [2, 1, 'A', '10', None], [3, 1, 'A', '10', None], [4, 1, 'B', '10', None]],
+        columns=['be_id', 'internet', 'sbi', 'gk', 'telewerkers'])
+    variables = {
+        'telewerkers': {'type': 'float', 'no_impute': None, 'filter': None,
+                        'impute_only': None, 'impute_method': 'nan'}}
+
+    # Run ImputeGaps
+    test = ImputeGaps(records_df, variables, impute_settings, id_key)
+
+    # Maak verwacht
+    expected = pd.Series([0,0,0,0], copy=False, name='telewerkers')
+
+    # Test uitvoeren
+    pd.testing.assert_series_equal(test.records_df['telewerkers'], expected)
