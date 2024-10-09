@@ -2,9 +2,15 @@
 Changelog
 =========
 
-Version 0.1
-===========
+Version 0.1.4
+=============
 
-- Feature A added
-- FIX: nasty bug #1729 fixed
-- add your changes here!
+- installatietest
+
+Version 0.1.3
+=============
+
+- initial version
+- installatietest
+
+

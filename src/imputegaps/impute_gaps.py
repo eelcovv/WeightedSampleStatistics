@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from pandas import Series
 
+from pandas import DataFrame
+
 logger = logging.getLogger(__name__)
 
 
@@ -14,14 +16,14 @@ class ImputeGaps:
     Initializes the ImputeGaps object.
 
     Arguments
-    ----------
-    records_df: pd.DataFrame
+    ---------
+    records_df: DataFrame
         DataFrame containing variables with missing values.
     variables: dict
         Dictionary with information about the variables to impute.
     impute_settings: dict
         Dictionary with imputation settings.
-    id_key: String
+    record_id: str
         Name of the variable by which a record is identified (e.g. be_id)
 
     Notes
@@ -38,19 +40,40 @@ class ImputeGaps:
     """
 
     def __init__(
-        self, records_df=None, variables=None, impute_settings=None, id_key=None
+        self,
+        records_df: DataFrame = None,
+        variables: dict = None,
+        impute_settings=None,
+        impute_methods_per_type=None,
+        record_id_key=None,
+        group_by=None,
     ):
 
-        self.records_df = records_df
-        self.original_indices = self.records_df.index.names
+        self.group_by = group_by
+        self.records_id_key = record_id_key
+
+        self.original_indices = records_df.index.names
+
+        # pass a copy of the records and reorganize the data
+        self.records_df = self.prepare_data(records_df.copy())
+
         self.variables = variables
         self.impute_settings = impute_settings
-        self.id = id_key
-        self.group_by = self.impute_settings["group_by"].split("; ")
+        self.impute_methods_per_type = impute_methods_per_type
 
         self.impute_gaps()
 
-    def fill_missing_data(self, col, how) -> pd.DataFrame:
+    def prepare_data(self, records_df: DataFrame) -> DataFrame:
+        """
+        Make sure that all possible variables for group by are set as index
+        """
+        new_records_df = records_df.reset_index()
+        new_index = self.group_by + [self.records_id_key]
+        new_records_df = new_records_df.set_index(new_index, drop=True)
+
+        return new_records_df
+
+    def fill_missing_data(self, col, how) -> DataFrame:
         """Impute missing values for one variable of a particular stratum (subset)
 
         Parameters
@@ -104,7 +127,7 @@ class ImputeGaps:
                 valid_values = imputed_col.cat.categories
                 if "1.0" in valid_values:
                     samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
-                elif "0.0" in valid_values:
+                elif valid_values.dtype == "object":
                     imputed_col = imputed_col.cat.add_categories("1.0")
                     samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
                 elif 1 in valid_values:
@@ -116,8 +139,10 @@ class ImputeGaps:
                 if "1.0" in imputed_col[~mask].values:
                     samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
                 else:
-                    samples = np.full(imputed_col.isnull().sum(), fill_value=1)
+                    samples = np.full(imputed_col.isnull().sum(), fill_value=1.0)
         elif how == "pick":
+            if self.impute_settings["set_seed"] is not None:
+                np.random.seed(self.impute_settings["set_seed"])
             number_of_nans = mask.sum()
             valid_values = imputed_col[~mask].values
             if valid_values.size == 0:
@@ -144,13 +169,6 @@ class ImputeGaps:
         None
         """
 
-        # Make sure that all possible variables for group by are set as index
-        self.records_df = self.records_df.reset_index().copy()
-        indices = [i.split(", ") for i in self.group_by]
-        indices = list(dict.fromkeys([item for sublist in indices for item in sublist]))
-        new_index = [self.id] + indices
-        self.records_df.set_index(new_index, inplace=True)
-
         # Iterate over variables
         for col_name in self.records_df.columns:
             # Check if there is information available about the variable
@@ -174,6 +192,7 @@ class ImputeGaps:
 
             # Variabele to impute
             col_to_impute = self.records_df[col_name]
+            start_type = col_to_impute.dtype
 
             # Get filter(s) if provided
             if self.variables[col_name]["impute_only"] is None:
@@ -290,11 +309,12 @@ class ImputeGaps:
                     )
 
             # Replace original column by imputed column
-            self.records_df[col_name] = col_to_impute
+            self.records_df[col_name] = col_to_impute.astype(start_type)
 
         # Set original indices back
         self.records_df = self.records_df.copy()
         self.records_df.reset_index(inplace=True)
+
         if None not in self.original_indices:
             self.records_df.set_index(self.original_indices, inplace=True)
             logger.info("Set index {}.".format(self.original_indices))

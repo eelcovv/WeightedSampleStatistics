@@ -64,13 +64,13 @@ def main(args):
     id_key = args.id
 
     # Read settings file
-    with codecs.open(args.impute_settings, "r", encoding="UTF-8") as stream:
+    with codecs.open(args.settings, "r", encoding="UTF-8") as stream:
         impute_settings = yaml.load(stream=stream, Loader=yaml.Loader)["general"][
             "imputation"
         ]
 
     # Convert variables to dictionary
-    variables.set_index("naam", inplace=True)
+    # variables.set_index("naam", inplace=True)
     variables = variables.to_dict("index")
 
     # Start class ImputeGaps
