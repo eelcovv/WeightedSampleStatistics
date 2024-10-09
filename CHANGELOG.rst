@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 0.1.5
+=============
+
+- toevoeging impute_method per variabele
+
 Version 0.1.4
 =============
 
