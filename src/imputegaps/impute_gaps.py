@@ -17,14 +17,14 @@ class ImputeGaps:
 
     Arguments
     ---------
-    group_by: list
+    group_by: list | str
         List with the variables by which the records should be grouped. The first variable is the most important one.
+    id_key: str
+        Name of the variable by which a record is identified (e.g. be_id)
     variables: dict
         Dictionary with information about the variables to impute.
     imputation_methods: dict
         Dictionary with imputation methods per data type.
-    id_key: String
-        Name of the variable by which a record is identified (e.g. be_id)
     seed: int
         Seed for random number generator.
 
@@ -43,11 +43,11 @@ class ImputeGaps:
 
     def __init__(
         self,
-        group_by=None,
-        imputation_methods=None,
-        seed=None,
-        variables=None,
-        id_key=None,
+        group_by: list | str,
+        id_key: str,
+        imputation_methods: dict | None = None,
+        variables: dict | None = None,
+        seed: int = None,
     ):
 
         if isinstance(group_by, str):
