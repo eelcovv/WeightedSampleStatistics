@@ -1,9 +1,14 @@
 import logging
-import pandas as pd
-import numpy as np
 import warnings
+from typing import Union
+
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+DataFrameType = Union["DataFrame", None]
+DataFrameLikeType = Union["DataFrame", "Series", None]
 
 
 class ImputeGaps:
@@ -12,14 +17,16 @@ class ImputeGaps:
 
     Arguments
     ---------
-    records_df: pd.DataFrame
-        DataFrame containing variables with missing values.
+    group_by: list
+        List with the variables by which the records should be grouped. The first variable is the most important one.
     variables: dict
         Dictionary with information about the variables to impute.
-    impute_settings: dict
-        Dictionary with imputation settings.
+    imputation_methods: dict
+        Dictionary with imputation methods per data type.
     id_key: String
         Name of the variable by which a record is identified (e.g. be_id)
+    seed: int
+        Seed for random number generator.
 
     Notes
     ----------
@@ -35,19 +42,26 @@ class ImputeGaps:
     """
 
     def __init__(
-        self, records_df=None, variables=None, impute_settings=None, id_key=None
+        self,
+        group_by=None,
+        imputation_methods=None,
+        seed=None,
+        variables=None,
+        id_key=None,
     ):
 
-        self.records_df = records_df
-        self.original_indices = self.records_df.index.names
+        if isinstance(group_by, str):
+            self.group_by = [group_by]
+        else:
+            self.group_by = group_by
+        # self.group_by = self.impute_settings["group_by"].split("; ")
+        self.imputation_methods = imputation_methods
+        self.seed = seed
+
         self.variables = variables
-        self.impute_settings = impute_settings
-        self.id = id_key
-        self.group_by = self.impute_settings["group_by"].split("; ")
+        self.id_key = id_key
 
-        self.impute_gaps()
-
-    def fill_missing_data(self, col, how) -> pd.DataFrame:
+    def fill_missing_data(self, col, how) -> DataFrameLikeType:
         """Impute missing values for one variable of a particular stratum (subset)
 
         Parameters
@@ -64,8 +78,8 @@ class ImputeGaps:
 
         Returns
         -------
-        imputed_col: pd.Series
-            pd.Series with imputed values.
+        imputed_col: DataFrameLikeType
+            Series with imputed values
         """
         imputed_col = col.copy()
 
@@ -134,24 +148,66 @@ class ImputeGaps:
             imputed_col.loc[mask] = samples
         return imputed_col
 
-    def impute_gaps(self) -> None:
+    def impute_gaps(self, records_df: DataFrameType) -> DataFrameType:
         """
-        Impute all missing values in a dataframe.
+        Impute all missing values in a dataframe for indices group_by.
+
+        Parameters
+        ----------
+        records_df: DataFrameType
+            DataFrame containing variables with missing values.
 
         Returns
         -------
-        None
+        DataFrameType:
+            DataFrame with imputed values.
         """
 
-        # Make sure that all possible variables for group by are set as index
-        self.records_df = self.records_df.reset_index().copy()
-        indices = [i.split(", ") for i in self.group_by]
-        indices = list(dict.fromkeys([item for sublist in indices for item in sublist]))
-        new_index = [self.id] + indices
-        self.records_df.set_index(new_index, inplace=True)
+        number_of_dimensions = len(self.group_by)
+        original_indices = records_df.index.names
+        for group_dim in range(number_of_dimensions):
+            max_dim = number_of_dimensions - group_dim
+            if max_dim > 0:
+                indices = self.group_by[:max_dim]
+                new_index = [self.id_key] + indices
+            else:
+                new_index = self.id_key
+
+            records_df = self.impute_gaps_for_dimensions(records_df, new_index)
+
+        # Set original indices back
+        records_df.reset_index(inplace=True)
+
+        if None not in self.original_indices:
+            records_df.set_index(original_indices, inplace=True)
+            logger.debug("Set index {}.".format(original_indices))
+
+        return records_df
+
+    def impute_gaps_for_dimensions(
+        self, records_df: DataFrameType, new_index: list
+    ) -> DataFrameType:
+        """
+        Impute all missing values in a dataframe for a particular subset (aka stratum).
+
+        Parameters
+        ----------
+        records_df: DataFrameType
+            DataFrame containing variables with missing values.
+        new_index: list
+            List with the new index for the DataFrame.
+
+        Returns
+        -------
+        DataFrameType:
+            DataFrame with imputed values for indices new_index.
+        """
+
+        records_df = records_df.reset_index()
+        records_df.set_index(new_index, inplace=True)
 
         # Iterate over variables
-        for col_name in self.records_df.columns:
+        for col_name in records_df.columns:
             # Check if there is information available about the variable
             try:
                 var_type = self.variables[col_name]["type"]
@@ -162,7 +218,7 @@ class ImputeGaps:
             # Check if the variable has a 'no_impute' flag or if its type should not be imputed
             if (
                 self.variables[col_name]["no_impute"]
-                or var_type in self.impute_settings["imputation_methods"]["skip"]
+                or var_type in self.imputation_methods["skip"]
             ):
                 logger.info(
                     "Skip imputing variable {} of var type {}".format(
@@ -172,7 +228,7 @@ class ImputeGaps:
                 continue
 
             # Variabele to impute
-            col_to_impute = self.records_df[col_name]
+            col_to_impute = records_df[col_name]
             start_type = col_to_impute.dtype
 
             # Get filter(s) if provided
@@ -194,7 +250,7 @@ class ImputeGaps:
                 # Apply filter with a regular variable
                 else:
                     try:
-                        filter_mask = self.records_df[var_filter]
+                        filter_mask = records_df[var_filter]
                     except KeyError as err:
                         logger.warning(f"Failed to filter with {var_filter}, {err}")
                     else:
@@ -223,7 +279,7 @@ class ImputeGaps:
             )
 
             # Get which imputing method to use
-            imputation_dict = self.impute_settings["imputation_methods"]
+            imputation_dict = self.imputation_methods
             not_none = [
                 i for i in imputation_dict.keys() if imputation_dict[i] is not None
             ]
@@ -294,14 +350,6 @@ class ImputeGaps:
                     )
 
             # Replace original column by imputed column
-            self.records_df[col_name] = col_to_impute.astype(start_type)
+            records_df[col_name] = col_to_impute.astype(start_type)
 
-        # Set original indices back
-        self.records_df = self.records_df.copy()
-        self.records_df.reset_index(inplace=True)
-
-        if None not in self.original_indices:
-            self.records_df.set_index(self.original_indices, inplace=True)
-            logger.info("Set index {}.".format(self.original_indices))
-
-        logger.info("Done")
+        return records_df
