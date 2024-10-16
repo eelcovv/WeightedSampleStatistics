@@ -102,7 +102,8 @@ class ImputeGaps:
     Arguments
     ---------
     group_by: list | str
-        List with the variables by which the records should be grouped. The first variable is the most important one.
+        List with the variables by which the records should be grouped.
+        The first variable is the most important one.
     id_key: str
         Name of the variable by which a record is identified (e.g. be_id)
     variables: dict
@@ -114,15 +115,17 @@ class ImputeGaps:
 
     Notes
     ----------
-    *   De dictionary 'variables' is in principe de pd.DataFrame 'self.variables' uit de ICT analyser, geconverteerd
-        naar een dictionary. Als preprocessing stap moet hierbij de kolom 'filter' zijn platgeslagen, oftewel: het mag
-        geen dictionary meer zijn. De dictionary 'variables' moet ten minste de volgende kolommen bevatten:
-        [["type", "no_impute", "filter"]], met optioneel: "impute_only".
-    *   De dict 'impute_settings' is een nieuw kopje onder 'General' in de settingsfile. Een belangrijk subkopje is
-        'group_by', wat er zo kan uitzien:
+    *   De dictionary 'variables' is in principe de pd.DataFrame 'self.variables' uit de ICT
+        analyser, geconverteerd naar een dictionary.
+        Als preprocessing stap moet hierbij de kolom 'filter' zijn platgeslagen, oftewel: het mag
+        geen dictionary meer zijn. De dictionary 'variables' moet ten minste de volgende kolommen
+        bevatten: [["type", "no_impute", "filter"]], met optioneel: "impute_only".
+    *   De dict 'impute_settings' is een nieuw kopje onder 'General' in de settingsfile.
+        Een belangrijk subkopje is 'group_by', wat er zo kan uitzien:
          group_by: "sbi_digit2, gk6_label; gk6_label"
-        Dit betekent dat er eerst wordt geïmputeerd in strata o.b.v. sbi_digit2 en gk6_label. Als dat niet lukt, wordt
-        alleen geïmputeerd o.b.v. gk6_label. Op dezelfde manier kunnen meer opties worden toegevoegd.
+        Dit betekent dat er eerst wordt geïmputeerd in strata o.b.v. sbi_digit2 en gk6_label.
+        Als dat niet lukt, wordt alleen geïmputeerd o.b.v. gk6_label. Op dezelfde manier kunnen
+        meer opties worden toegevoegd.
     """
 
     def __init__(
@@ -164,7 +167,7 @@ class ImputeGaps:
         """
 
         original_indices = records_df.index.names
-        number_of_dimensions: int = len(self.group_by)
+        number_of_dimensions = len(self.group_by)
         for group_dim in range(number_of_dimensions):
             max_dim = number_of_dimensions - group_dim
             if max_dim > 0:
@@ -205,6 +208,7 @@ class ImputeGaps:
 
         records_df = records_df.reset_index()
         records_df.set_index(new_index, inplace=True)
+        how = None
 
         # Iterate over variables
         for col_name in records_df.columns:
@@ -216,15 +220,8 @@ class ImputeGaps:
                 continue
 
             # Check if the variable has a 'no_impute' flag or if its type should not be imputed
-            if (
-                self.variables[col_name]["no_impute"]
-                or var_type in self.imputation_methods["skip"]
-            ):
-                logger.info(
-                    "Skip imputing variable {} of var type {}".format(
-                        col_name, var_type
-                    )
-                )
+            if self.variables[col_name]["no_impute"] or var_type in self.imputation_methods["skip"]:
+                logger.info("Skip imputing variable {} of var type {}".format(col_name, var_type))
                 continue
 
             # Variabele to impute
@@ -278,9 +275,7 @@ class ImputeGaps:
 
             # Get which imputing method to use
             imputation_dict = self.imputation_methods
-            not_none = [
-                i for i in imputation_dict.keys() if imputation_dict[i] is not None
-            ]
+            not_none = [i for i in imputation_dict.keys() if imputation_dict[i] is not None]
 
             if not pd.isna(self.variables[col_name]["impute_method"]):
                 how = self.variables[col_name]["impute_method"]
@@ -315,11 +310,9 @@ class ImputeGaps:
                 imputed_col = fill_missing_data(col, how=how)
                 return imputed_col
 
-            # Iterate over the variables in the group_by-list and try to impute until there are no more missing values
-            n_iterations = 0
-            df_grouped = col_to_impute.groupby(
-                new_index, group_keys=False
-            )  # Do group by
+            # Iterate over the variables in the group_by-list and try to impute until there are no
+            # more missing values
+            df_grouped = col_to_impute.groupby(new_index, group_keys=False)  # Do group by
             col_to_impute = df_grouped.apply(fill_gaps)  # Impute missing values
 
             number_of_nans_after = col_to_impute.isnull().sum()
@@ -334,7 +327,7 @@ class ImputeGaps:
             elif number_of_nans_after > 0:
                 logger.warning(
                     "Failed imputing some gaps for {}: {} gaps imputed and {} gaps remaining. "
-                    "".format(col_name, number_of_removed_nans, n_nans1)
+                    "".format(col_name, number_of_removed_nans, number_of_nans_after)
                 )
             elif number_of_nans_after == 0:
                 logger.warning(
@@ -347,9 +340,7 @@ class ImputeGaps:
                     )
                 )
             else:
-                logger.warning(
-                    "Something went wrong with imputing gaps for {}.".format(col_name)
-                )
+                logger.warning("Something went wrong with imputing gaps for {}.".format(col_name))
 
             # Replace original column by imputed column
             records_df[col_name] = col_to_impute.astype(start_type)
