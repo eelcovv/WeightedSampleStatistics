@@ -19,10 +19,11 @@ def parse_args(args):
     """Parse command line parameters
 
     Args:
-      args (List[str]): command line parameters as list of strings
-          (for example  ``["--help"]``).
+      args (List[str]): command line parameters as a list of strings
+          (for example, ``["--help"]``).
 
     Returns:
+
       :obj:`argparse.Namespace`: command line parameters namespace
     """
     parser = argparse.ArgumentParser()
@@ -41,9 +42,12 @@ def setup_logging(loglevel):
     Args:
       loglevel (int): minimum loglevel for emitting messages
     """
-    logformat = "[%(asctime)s] %(levelname)s:%(name)s:%(message)s"
+    log_format = "[%(asctime)s] %(levelname)s:%(name)s:%(message)s"
     logging.basicConfig(
-        level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
+        level=loglevel,
+        stream=sys.stdout,
+        format=log_format,
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
@@ -63,18 +67,24 @@ def main(args):
     variables = pd.read_csv(args.variables, sep=";")
     id_key = args.id
 
-    # Read settings file
+    # Read the settings file
     with codecs.open(args.impute_settings, "r", encoding="UTF-8") as stream:
-        impute_settings = yaml.load(stream=stream, Loader=yaml.Loader)["general"][
-            "imputation"
-        ]
+        impute_settings = yaml.load(stream=stream, Loader=yaml.Loader)["general"]["imputation"]
 
     # Convert variables to dictionary
     # variables.set_index("naam", inplace=True)
     variables = variables.to_dict("index")
 
     # Start class ImputeGaps
-    ImputeGaps(records_df, variables, impute_settings, id_key=id_key)
+    impute_gaps = ImputeGaps(
+        group_by=args.group_by,
+        id_key=id_key,
+        imputation_methods=impute_settings["imputation_methods"],
+        seed=impute_settings["set_seed"],
+        variables=variables,
+    )
+
+    records_df = impute_gaps.impute_gaps(records_df)
 
     _logger.info("Class ImputeGaps has finished.")
 
@@ -82,7 +92,7 @@ def main(args):
 def run():
     """Calls :func:`main` passing the CLI arguments extracted from :obj:`sys.argv`
 
-    This function can be used as entry point to create console scripts with setuptools.
+    This function can be used as an entry point to create console scripts with setuptools.
     """
     main(sys.argv[1:])
 
