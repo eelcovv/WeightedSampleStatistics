@@ -136,6 +136,9 @@ class ImputeGaps:
         variables: dict | None = None,
         seed: int = None,
     ):
+        logger.debug("Start with debug")
+        logger.info("Start with info")
+        logger.warning("Start with warning")
 
         if isinstance(group_by, str):
             self.group_by: list = [group_by]

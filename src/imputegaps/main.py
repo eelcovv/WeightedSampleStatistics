@@ -1,18 +1,16 @@
 import argparse
 import codecs
-import logging
 import sys
 
 import pandas as pd
 import yaml
 
+from imputegaps import logger
 from imputegaps.impute_gaps import ImputeGaps
 
 __author__ = "EMSK"
 __copyright__ = "EMSK"
 __license__ = "MIT"
-
-_logger = logging.getLogger(__name__)
 
 
 def parse_args(args):
@@ -36,31 +34,16 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-def setup_logging(loglevel):
-    """Setup basic logging
-
-    Args:
-      loglevel (int): minimum loglevel for emitting messages
-    """
-    log_format = "[%(asctime)s] %(levelname)s:%(name)s:%(message)s"
-    logging.basicConfig(
-        level=loglevel,
-        stream=sys.stdout,
-        format=log_format,
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-
 def main(args):
     """
     doc here
     """
 
-    _logger.debug("Starting class ImputeGaps.")
+    logger.debug("Starting class ImputeGaps.")
 
     # Get command line arguments and set up logging
     args = parse_args(args)
-    setup_logging(args.loglevel)
+    logger.setLevel(args.loglevel)
 
     # Read input files
     records_df = pd.read_csv(args.records_df, sep=";")
@@ -86,7 +69,7 @@ def main(args):
 
     records_df = impute_gaps.impute_gaps(records_df)
 
-    _logger.info("Class ImputeGaps has finished.")
+    logger.info("Class ImputeGaps has finished.")
 
 
 def run():
