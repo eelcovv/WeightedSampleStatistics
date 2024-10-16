@@ -263,14 +263,11 @@ class ImputeGaps:
 
             logger.info("Impute gaps {:20s} ({})".format(col_name, var_type))
             logger.debug("Imputing variable {}".format(col_name))
+            col_size = col_to_impute.size
+            percentage_to_replace = round(100 * number_of_nans_before / col_size, 1)
             logger.debug(
-                "Filling {} with {} / {} nans ({:.1f} %)"
-                "".format(
-                    col_name,
-                    number_of_nans_before,
-                    col_to_impute.size,
-                    (number_of_nans_before / col_to_impute.size) * 100,
-                )
+                f"Filling {col_name} with {number_of_nans_before} / {col_size} nans "
+                f"({percentage_to_replace:.1f} %)"
             )
 
             # Get which imputing method to use
@@ -321,23 +318,20 @@ class ImputeGaps:
 
             if number_of_removed_nans == 0 and number_of_nans_before > 0:
                 logger.warning(
-                    "Failed imputing any gap for {}: {} gaps imputed and {} gaps remaining."
-                    "".format(col_name, number_of_removed_nans, number_of_nans_before)
+                    f"Failed imputing any gap for {col_name} for {new_index}: "
+                    f"{number_of_removed_nans} gaps imputed / {number_of_nans_after} gaps remaining"
                 )
             elif number_of_nans_after > 0:
                 logger.warning(
-                    "Failed imputing some gaps for {}: {} gaps imputed and {} gaps remaining. "
-                    "".format(col_name, number_of_removed_nans, number_of_nans_after)
+                    f"Failed imputing some gap for {col_name} for {new_index}: "
+                    f"{number_of_removed_nans} gaps imputed / {number_of_nans_after} gaps remaining"
                 )
             elif number_of_nans_after == 0:
-                logger.warning(
-                    "Successfully finished imputing all {}/{} = {} gaps for {}."
-                    "".format(
-                        number_of_nans_before,
-                        col_to_impute.size,
-                        number_of_nans_before / col_to_impute.size,
-                        col_name,
-                    )
+                col_size = col_to_impute.size
+                percentage_replaced = round(100 * number_of_nans_before / col_size, 1)
+                logger.info(
+                    f"Successfully imputed all {number_of_nans_before}/{col_size} "
+                    f"({percentage_replaced:.1f} %) gaps for {col_name}."
                 )
             else:
                 logger.warning("Something went wrong with imputing gaps for {}.".format(col_name))
