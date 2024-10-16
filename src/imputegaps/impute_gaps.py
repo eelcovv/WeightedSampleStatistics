@@ -11,6 +11,90 @@ DataFrameType = Union["DataFrame", None]
 DataFrameLikeType = Union["DataFrame", "Series", None]
 
 
+def fill_missing_data(col, how) -> DataFrameLikeType:
+    """Impute missing values for one variable of a particular stratum (subset)
+
+    Parameters
+    ----------
+    col: pd.Series
+        pd.Series with one column that contains missing values.
+    how: String {"mean", "median", "pick", "nan", "pick1"},
+        Method that should be used to fill the missing values;
+        - mean: Impute with the mean
+        - median: Impute with the median
+        - pick: Impute with a random value (for categorical variables)
+        - nan: Impute with the value 0
+        - pick1: Impute with the value 1
+
+    Returns
+    -------
+    imputed_col: DataFrameLikeType
+        Series with imputed values
+    """
+    imputed_col = col.copy()
+
+    # Create a mask with the size of a column with True for all missing values
+    mask = imputed_col.isnull()
+
+    # Skip if there are no missing values
+    if not mask.any():
+        return imputed_col
+
+    # Fill missing values depending on which method to use
+    if how == "mean":
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            samples = np.full(mask.size, fill_value=imputed_col.mean())
+    elif how == "median":
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            samples = np.full(mask.size, fill_value=imputed_col.median())
+    elif how == "mode":
+        # Try to get mode
+        try:
+            fill_val = imputed_col.mode()[0]
+        # Mode cannot be obtained when all values in that stratum are missing
+        except KeyError:
+            fill_val = np.nan
+        samples = np.full(mask.size, fill_value=fill_val)
+    elif how == "nan":
+        samples = np.full(imputed_col.isnull().sum(), fill_value=0)
+    elif how == "pick1":
+        # Let pick1 work with values that are '1.0 and 0.0'.
+        try:
+            valid_values = imputed_col.cat.categories
+            if "1.0" in valid_values:
+                samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
+            elif valid_values.dtype == "object":
+                imputed_col = imputed_col.cat.add_categories("1.0")
+                samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
+            elif 1 in valid_values:
+                samples = np.full(imputed_col.isnull().sum(), fill_value=1)
+            else:
+                imputed_col = imputed_col.cat.add_categories(1)
+                samples = np.full(imputed_col.isnull().sum(), fill_value=1)
+        except AttributeError:
+            if "1.0" in imputed_col[~mask].values:
+                samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
+            else:
+                samples = np.full(imputed_col.isnull().sum(), fill_value=1.0)
+    elif how == "pick":
+        number_of_nans = mask.sum()
+        valid_values = imputed_col[~mask].values
+        if valid_values.size == 0:
+            return imputed_col
+        else:
+            samples = np.random.choice(valid_values, size=number_of_nans, replace=True)
+    else:
+        raise ValueError("Not a valid choice for how {}.".format(how))
+    # Fill the missing values with the values from samples
+    if samples.size > 1:
+        imputed_col[mask] = samples
+    else:
+        imputed_col.loc[mask] = samples
+    return imputed_col
+
+
 class ImputeGaps:
     """
     Initializes the ImputeGaps object.
@@ -51,102 +135,18 @@ class ImputeGaps:
     ):
 
         if isinstance(group_by, str):
-            self.group_by = [group_by]
+            self.group_by: list = [group_by]
         else:
-            self.group_by = group_by
+            self.group_by: list = group_by
         # self.group_by = self.impute_settings["group_by"].split("; ")
         self.imputation_methods = imputation_methods
-        self.seed = seed
+
+        if seed is not None:
+            # Set seed for random number generator. Only needs to be done one time
+            np.random.seed(seed)
 
         self.variables = variables
         self.id_key = id_key
-
-    def fill_missing_data(self, col, how) -> DataFrameLikeType:
-        """Impute missing values for one variable of a particular stratum (subset)
-
-        Parameters
-        ----------
-        col: pd.Series
-            pd.Series with one column that contains missing values.
-        how: String {"mean", "median", "pick", "nan", "pick1"},
-            Method that should be used to fill the missing values;
-            - mean: Impute with the mean
-            - median: Impute with the median
-            - pick: Impute with a random value (for categorical variables)
-            - nan: Impute with the value 0
-            - pick1: Impute with the value 1
-
-        Returns
-        -------
-        imputed_col: DataFrameLikeType
-            Series with imputed values
-        """
-        imputed_col = col.copy()
-
-        # Create a mask with the size of a column with True for all missing values
-        mask = imputed_col.isnull()
-
-        # Skip if there are no missing values
-        if not mask.any():
-            return imputed_col
-
-        # Fill missing values depending on which method to use
-        if how == "mean":
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-                samples = np.full(mask.size, fill_value=imputed_col.mean())
-        elif how == "median":
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-                samples = np.full(mask.size, fill_value=imputed_col.median())
-        elif how == "mode":
-            # Try to obtain mode
-            try:
-                fill_val = imputed_col.mode()[0]
-            # Mode cannot be obtained when all values in that stratum are missing
-            except KeyError:
-                fill_val = np.nan
-            samples = np.full(mask.size, fill_value=fill_val)
-        elif how == "nan":
-            samples = np.full(imputed_col.isnull().sum(), fill_value=0)
-        elif how == "pick1":
-            # Let pick1 work with values that are '1.0 and 0.0'.
-            try:
-                valid_values = imputed_col.cat.categories
-                if "1.0" in valid_values:
-                    samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
-                elif valid_values.dtype == "object":
-                    imputed_col = imputed_col.cat.add_categories("1.0")
-                    samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
-                elif 1 in valid_values:
-                    samples = np.full(imputed_col.isnull().sum(), fill_value=1)
-                else:
-                    imputed_col = imputed_col.cat.add_categories(1)
-                    samples = np.full(imputed_col.isnull().sum(), fill_value=1)
-            except AttributeError:
-                if "1.0" in imputed_col[~mask].values:
-                    samples = np.full(imputed_col.isnull().sum(), fill_value="1.0")
-                else:
-                    samples = np.full(imputed_col.isnull().sum(), fill_value=1.0)
-        elif how == "pick":
-            if self.impute_settings["set_seed"] is not None:
-                np.random.seed(self.impute_settings["set_seed"])
-            number_of_nans = mask.sum()
-            valid_values = imputed_col[~mask].values
-            if valid_values.size == 0:
-                return imputed_col
-            else:
-                samples = np.random.choice(
-                    valid_values, size=number_of_nans, replace=True
-                )
-        else:
-            raise ValueError("Not a valid choice for how {}.".format(how))
-        # Fill the missing values with the values from samples
-        if samples.size > 1:
-            imputed_col[mask] = samples
-        else:
-            imputed_col.loc[mask] = samples
-        return imputed_col
 
     def impute_gaps(self, records_df: DataFrameType) -> DataFrameType:
         """
@@ -163,8 +163,8 @@ class ImputeGaps:
             DataFrame with imputed values.
         """
 
-        number_of_dimensions = len(self.group_by)
         original_indices = records_df.index.names
+        number_of_dimensions: int = len(self.group_by)
         for group_dim in range(number_of_dimensions):
             max_dim = number_of_dimensions - group_dim
             if max_dim > 0:
@@ -178,7 +178,7 @@ class ImputeGaps:
         # Set original indices back
         records_df.reset_index(inplace=True)
 
-        if None not in self.original_indices:
+        if None not in original_indices:
             records_df.set_index(original_indices, inplace=True)
             logger.debug("Set index {}.".format(original_indices))
 
@@ -257,13 +257,11 @@ class ImputeGaps:
                         col_to_impute = col_to_impute.loc[filter_mask == 1]
 
             # Compute number of missing values
-            n_nans = n_nans1 = col_to_impute.isnull().sum()
+            number_of_nans_before = col_to_impute.isnull().sum()
 
             # Skip if there are no missing values
-            if n_nans1 == 0:
-                logger.debug(
-                    "Skip imputing {}. It has no invalid numbers".format(col_name)
-                )
+            if number_of_nans_before == 0:
+                logger.debug(f"Skip imputing {col_name}. It has no invalid numbers")
                 continue
 
             logger.info("Impute gaps {:20s} ({})".format(col_name, var_type))
@@ -272,9 +270,9 @@ class ImputeGaps:
                 "Filling {} with {} / {} nans ({:.1f} %)"
                 "".format(
                     col_name,
-                    n_nans1,
+                    number_of_nans_before,
                     col_to_impute.size,
-                    (n_nans1 / col_to_impute.size) * 100,
+                    (number_of_nans_before / col_to_impute.size) * 100,
                 )
             )
 
@@ -314,40 +312,44 @@ class ImputeGaps:
                 imputed_col: pd.Series
                     pd.Series with imputed values.
                 """
-                imputed_col = self.fill_missing_data(col, how=how)
+                imputed_col = fill_missing_data(col, how=how)
                 return imputed_col
 
             # Iterate over the variables in the group_by-list and try to impute until there are no more missing values
             n_iterations = 0
-            while n_nans1 > 0 and n_iterations < len(self.group_by):
-                group_keys = self.group_by[n_iterations].split(", ")
-                df_grouped = col_to_impute.groupby(
-                    group_keys, group_keys=False
-                )  # Do group by
-                col_to_impute = df_grouped.apply(fill_gaps)  # Impute missing values
-                n_nans1 = col_to_impute.isnull().sum()  # Count remaining missing values
-                n_iterations += 1
+            df_grouped = col_to_impute.groupby(
+                new_index, group_keys=False
+            )  # Do group by
+            col_to_impute = df_grouped.apply(fill_gaps)  # Impute missing values
+
+            number_of_nans_after = col_to_impute.isnull().sum()
+
+            number_of_removed_nans = number_of_nans_after - number_of_nans_before
+
+            if number_of_removed_nans == 0 and number_of_nans_before > 0:
+                logger.warning(
+                    "Failed imputing any gap for {}: {} gaps imputed and {} gaps remaining."
+                    "".format(col_name, number_of_removed_nans, number_of_nans_before)
+                )
+            elif number_of_nans_after > 0:
+                logger.warning(
+                    "Failed imputing some gaps for {}: {} gaps imputed and {} gaps remaining. "
+                    "".format(col_name, number_of_removed_nans, n_nans1)
+                )
+            elif number_of_nans_after == 0:
+                logger.warning(
+                    "Successfully finished imputing all {}/{} = {} gaps for {}."
+                    "".format(
+                        number_of_nans_before,
+                        col_to_impute.size,
+                        number_of_nans_before / col_to_impute.size,
+                        col_name,
+                    )
+                )
             else:
-                if n_nans == n_nans1 and n_nans > 0:
-                    logger.warning(
-                        "Failed imputing any gap for {}: {} gaps imputed and {} gaps remaining."
-                        "".format(col_name, n_nans - n_nans1, n_nans)
-                    )
-                elif n_nans1 > 0:
-                    logger.warning(
-                        "Failed imputing some gaps for {}: {} gaps imputed and {} gaps remaining. "
-                        "".format(col_name, n_nans - n_nans1, n_nans1)
-                    )
-                elif n_nans1 == 0:
-                    logger.warning(
-                        "Successfully finished imputing all {}/{} = {} gaps for {}."
-                        "".format(
-                            n_nans,
-                            col_to_impute.size,
-                            n_nans / col_to_impute.size,
-                            col_name,
-                        )
-                    )
+                logger.warning(
+                    "Something went wrong with imputing gaps for {}.".format(col_name)
+                )
 
             # Replace original column by imputed column
             records_df[col_name] = col_to_impute.astype(start_type)
