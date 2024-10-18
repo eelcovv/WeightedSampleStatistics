@@ -167,19 +167,26 @@ class ImputeGaps:
         """
 
         original_indices = records_df.index.names
+        records_df.reset_index(inplace=True)
         number_of_dimensions = len(self.group_by)
-        for group_dim in range(number_of_dimensions):
+
+        for group_dim in range(number_of_dimensions + 1):
             max_dim = number_of_dimensions - group_dim
             if max_dim > 0:
-                indices = self.group_by[:max_dim]
-                new_index = [self.id_key] + indices
+                group_by_indices = self.group_by[:max_dim]
+                index_for_group_by = [self.id_key] + group_by_indices
             else:
-                new_index = self.id_key
+                index_for_group_by = self.id_key
+                group_by_indices = []
 
-            records_df = self.impute_gaps_for_dimensions(records_df, new_index)
+            # set index before imputations
+            records_df.set_index(index_for_group_by, inplace=True)
 
-        # Set original indices back
-        records_df.reset_index(inplace=True)
+            # Impute missing values for the new index
+            records_df = self.impute_gaps_for_dimensions(records_df, group_by=group_by_indices)
+
+            # after each iteration, reset the index
+            records_df.reset_index(inplace=True)
 
         if None not in original_indices:
             records_df.set_index(original_indices, inplace=True)
@@ -188,7 +195,7 @@ class ImputeGaps:
         return records_df
 
     def impute_gaps_for_dimensions(
-        self, records_df: DataFrameType, new_index: list
+        self, records_df: DataFrameType, group_by: list
     ) -> DataFrameType:
         """
         Impute all missing values in a dataframe for a particular subset (aka stratum).
@@ -197,17 +204,16 @@ class ImputeGaps:
         ----------
         records_df: DataFrameType
             DataFrame containing variables with missing values.
-        new_index: list
+        group_by: list
             List with the new index for the DataFrame.
 
         Returns
         -------
         DataFrameType:
-            DataFrame with imputed values for indices new_index.
+            DataFrame with imputed values for indices group_by.
         """
 
-        records_df = records_df.reset_index()
-        records_df.set_index(new_index, inplace=True)
+        # Set index to group_by
         how = None
 
         # Iterate over variables
@@ -255,18 +261,23 @@ class ImputeGaps:
 
             # Compute number of missing values
             number_of_nans_before = col_to_impute.isnull().sum()
+            column_size = col_to_impute.size
 
             # Skip if there are no missing values
             if number_of_nans_before == 0:
                 logger.debug(f"Skip imputing {col_name}. It has no invalid numbers")
                 continue
 
+            # Skip if there is only missing values
+            if number_of_nans_before == column_size:
+                logger.debug(f"Skip imputing {col_name}. It has only invalid numbers")
+                continue
+
             logger.info("Impute gaps {:20s} ({})".format(col_name, var_type))
             logger.debug("Imputing variable {}".format(col_name))
-            col_size = col_to_impute.size
-            percentage_to_replace = round(100 * number_of_nans_before / col_size, 1)
+            percentage_to_replace = round(100 * number_of_nans_before / column_size, 1)
             logger.debug(
-                f"Filling {col_name} with {number_of_nans_before} / {col_size} nans "
+                f"Filling {col_name} with {number_of_nans_before} / {column_size} nans "
                 f"({percentage_to_replace:.1f} %)"
             )
 
@@ -309,28 +320,32 @@ class ImputeGaps:
 
             # Iterate over the variables in the group_by-list and try to impute until there are no
             # more missing values
-            df_grouped = col_to_impute.groupby(new_index, group_keys=False)  # Do group by
-            col_to_impute = df_grouped.apply(fill_gaps)  # Impute missing values
+            if group_by:
+                df_grouped = col_to_impute.groupby(group_by, group_keys=False)  # Do group by
+                col_to_impute = df_grouped.apply(fill_gaps)  # Impute missing values
+            else:
+                # for imputation on the whole column, we don't need to apply but just fill_gaps
+                col_to_impute = fill_missing_data(col_to_impute, how=how)
 
             number_of_nans_after = col_to_impute.isnull().sum()
 
-            number_of_removed_nans = number_of_nans_after - number_of_nans_before
+            number_of_removed_nans = number_of_nans_before - number_of_nans_after
 
             if number_of_removed_nans == 0 and number_of_nans_before > 0:
                 logger.warning(
-                    f"Failed imputing any gap for {col_name} for {new_index}: "
+                    f"Failed imputing any gap for {col_name} for {group_by}: "
                     f"{number_of_removed_nans} gaps imputed / {number_of_nans_after} gaps remaining"
                 )
             elif number_of_nans_after > 0:
                 logger.warning(
-                    f"Failed imputing some gap for {col_name} for {new_index}: "
+                    f"Failed imputing some gap for {col_name} for {group_by}: "
                     f"{number_of_removed_nans} gaps imputed / {number_of_nans_after} gaps remaining"
                 )
             elif number_of_nans_after == 0:
-                col_size = col_to_impute.size
-                percentage_replaced = round(100 * number_of_nans_before / col_size, 1)
+                column_size = col_to_impute.size
+                percentage_replaced = round(100 * number_of_nans_before / column_size, 1)
                 logger.info(
-                    f"Successfully imputed all {number_of_nans_before}/{col_size} "
+                    f"Successfully imputed all {number_of_nans_before}/{column_size} "
                     f"({percentage_replaced:.1f} %) gaps for {col_name}."
                 )
             else:
