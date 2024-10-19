@@ -101,10 +101,7 @@ class ImputeGaps:
 
     Arguments
     ---------
-    group_by: list | str
-        List with the variables by which the records should be grouped.
-        The first variable is the most important one.
-    id_key: str
+    index_key: str
         Name of the variable by which a record is identified (e.g. be_id)
     variables: dict
         Dictionary with information about the variables to impute.
@@ -130,17 +127,14 @@ class ImputeGaps:
 
     def __init__(
         self,
-        group_by: list | str,
-        id_key: str,
+        index_key: str,
         imputation_methods: dict | None = None,
         variables: dict | None = None,
         seed: int = None,
     ):
 
-        if isinstance(group_by, str):
-            self.group_by: list = [group_by]
-        else:
-            self.group_by: list = group_by
+        self.index_key = index_key
+
         # self.group_by = self.impute_settings["group_by"].split("; ")
         self.imputation_methods = imputation_methods
 
@@ -149,9 +143,13 @@ class ImputeGaps:
             np.random.seed(seed)
 
         self.variables = variables
-        self.id_key = id_key
 
-    def impute_gaps(self, records_df: DataFrameType) -> DataFrameType:
+    def impute_gaps(
+        self,
+        records_df: DataFrameType,
+        group_by: list,
+        drop_dimensions: bool = False,
+    ) -> DataFrameType:
         """
         Impute all missing values in a dataframe for indices group_by.
 
@@ -159,6 +157,12 @@ class ImputeGaps:
         ----------
         records_df: DataFrameType
             DataFrame containing variables with missing values.
+        group_by: list
+            List with the variables by which the records should be grouped.
+            The first variable is the most important one.
+        drop_dimensions: bool
+
+
 
         Returns
         -------
@@ -168,15 +172,16 @@ class ImputeGaps:
 
         original_indices = records_df.index.names
         records_df.reset_index(inplace=True)
-        number_of_dimensions = len(self.group_by)
+        number_of_dimensions = len(group_by)
 
+        # add one to number of dimensions because you add the index key
         for group_dim in range(number_of_dimensions + 1):
             max_dim = number_of_dimensions - group_dim
             if max_dim > 0:
-                group_by_indices = self.group_by[:max_dim]
-                index_for_group_by = [self.id_key] + group_by_indices
+                group_by_indices = group_by[:max_dim]
+                index_for_group_by = [self.index_key] + group_by_indices
             else:
-                index_for_group_by = self.id_key
+                index_for_group_by = self.index_key
                 group_by_indices = []
 
             # set index before imputations
@@ -188,6 +193,15 @@ class ImputeGaps:
             # after each iteration, reset the index
             records_df.reset_index(inplace=True)
 
+            if not drop_dimensions:
+                # by default, we do not continue imputing for the next group_by with one
+                # less dimension
+                break
+
+        if drop_dimensions:
+            # call the last time in case we gave drop dimensions
+            records_df = self.impute_gaps_for_dimensions(records_df)
+
         if None not in original_indices:
             records_df.set_index(original_indices, inplace=True)
             logger.debug("Set index {}.".format(original_indices))
@@ -195,7 +209,7 @@ class ImputeGaps:
         return records_df
 
     def impute_gaps_for_dimensions(
-        self, records_df: DataFrameType, group_by: list
+        self, records_df: DataFrameType, group_by: list | None = None
     ) -> DataFrameType:
         """
         Impute all missing values in a dataframe for a particular subset (aka stratum).

@@ -48,7 +48,7 @@ def main(args):
     # Read input files
     records_df = pd.read_csv(args.records_df, sep=";")
     variables = pd.read_csv(args.variables, sep=";")
-    id_key = args.id
+    index_key = args.id
 
     # Read the settings file
     with codecs.open(args.impute_settings, "r", encoding="UTF-8") as stream:
@@ -60,8 +60,7 @@ def main(args):
 
     # Start class ImputeGaps
     impute_gaps = ImputeGaps(
-        group_by=args.group_by,
-        id_key=id_key,
+        index_key=index_key,
         imputation_methods=impute_settings["imputation_methods"],
         seed=impute_settings["set_seed"],
         variables=variables,
