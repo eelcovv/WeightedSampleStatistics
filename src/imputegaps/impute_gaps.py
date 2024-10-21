@@ -11,7 +11,7 @@ DataFrameType = Union["DataFrame", None]
 DataFrameLikeType = Union["DataFrame", "Series", None]
 
 
-def fill_missing_data(col, how) -> DataFrameLikeType:
+def fill_missing_data(col, how, seed=None) -> DataFrameLikeType:
     """Impute missing values for one variable of a particular stratum (subset)
 
     Parameters
@@ -25,11 +25,14 @@ def fill_missing_data(col, how) -> DataFrameLikeType:
         - pick: Impute with a random value (for categorical variables)
         - nan: Impute with the value 0
         - pick1: Impute with the value 1
+    seed: int
+        Seed needed for random generator. Will only by imposed for seed == 1
 
     Returns
     -------
     imputed_col: DataFrameLikeType
         Series with imputed values
+
     """
     imputed_col = col.copy()
 
@@ -79,10 +82,10 @@ def fill_missing_data(col, how) -> DataFrameLikeType:
             else:
                 samples = np.full(imputed_col.isnull().sum(), fill_value=1.0)
     elif how == "pick":
-        if self.seed == 1:
+        if seed == 1:
             # only for seed is 1 we imposed every time we enter a new cell. Generates less random results
             # but useful for reproduction of the data
-            np.random.seed(self.seed)
+            np.random.seed(seed)
         number_of_nans = mask.sum()
         valid_values = imputed_col[~mask].values
         if valid_values.size == 0:
@@ -348,7 +351,7 @@ class ImputeGaps:
                 col_to_impute = df_grouped.apply(fill_gaps)  # Impute missing values
             else:
                 # for imputation on the whole column, we don't need to apply but just fill_gaps
-                col_to_impute = fill_missing_data(col_to_impute, how=how)
+                col_to_impute = fill_missing_data(col_to_impute, how=how, seed=self.seed)
 
             number_of_nans_after = col_to_impute.isnull().sum()
 
