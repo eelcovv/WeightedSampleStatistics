@@ -2,9 +2,10 @@
 Changelog
 =========
 
-Version 0.1.5
+Version 0.2.0
 =============
 
+- Eerste release versie voor productie
 - toevoeging impute_method per variabele
 - API verandering
 
