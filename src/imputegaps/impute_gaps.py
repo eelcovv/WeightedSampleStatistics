@@ -79,6 +79,10 @@ def fill_missing_data(col, how) -> DataFrameLikeType:
             else:
                 samples = np.full(imputed_col.isnull().sum(), fill_value=1.0)
     elif how == "pick":
+        if self.seed == 1:
+            # only for seed is 1 we imposed every time we enter a new cell. Generates less random results
+            # but useful for reproduction of the data
+            np.random.seed(self.seed)
         number_of_nans = mask.sum()
         valid_values = imputed_col[~mask].values
         if valid_values.size == 0:
@@ -108,7 +112,10 @@ class ImputeGaps:
     imputation_methods: dict
         Dictionary with imputation methods per data type.
     seed: int
-        Seed for random number generator.
+        Seed for random number generator. If seed == 1, seed will be imposed every time a cell is
+        entered, forcing less 'random results'. For seed not equal to 1, the seed will be set only once.
+        For seed is None, no seed will be imposed, meaning that your outcome of random pick will be differenct
+        every time your run the code
 
     Notes
     ----------
@@ -138,7 +145,9 @@ class ImputeGaps:
         # self.group_by = self.impute_settings["group_by"].split("; ")
         self.imputation_methods = imputation_methods
 
-        if seed is not None:
+        self.seed = seed
+
+        if self.seed is not None:
             # Set seed for random number generator. Only needs to be done one time
             np.random.seed(seed)
 
