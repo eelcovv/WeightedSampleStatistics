@@ -341,7 +341,7 @@ class ImputeGaps:
                 imputed_col: pd.Series
                     pd.Series with imputed values.
                 """
-                imputed_col = fill_missing_data(col, how=how)
+                imputed_col = fill_missing_data(col, how=how, seed=self.seed)
                 return imputed_col
 
             # Iterate over the variables in the group_by-list and try to impute until there are no
