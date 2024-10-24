@@ -593,9 +593,10 @@ class WeightedSampleStatistics:
             records_var = proportion_squared_sel.mul(
                 self.weights_pop_normalized_df, axis="index"
             )
-        else:
+        elif self.weights_sel_normalized_df is not None:
             # for the compound breakdowns, us the variances from the first round and multiply
             # with w_i**2
+            
             weights_sel_normalized_df_squared = np.square(
                 self.weights_sel_normalized_df
             )
@@ -606,7 +607,9 @@ class WeightedSampleStatistics:
                 )
             except TypeError as err:
                 logger.warning(err)
-                return 
+                return
+            else:
+                logger.warning("Assertion Error HERE. Check why weights is none")
 
         records_var_grp = records_var.groupby(self.group_keys)
         self.records_var_df = records_var_grp.transform("sum")
