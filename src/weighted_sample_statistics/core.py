@@ -1,9 +1,10 @@
 """
 Definition of weighted_sample_statistics class to calculate weighted weighted_sample_statistics
 """
+
 import logging
 import re
-from typing import Union
+from typing import Union, Iterable, Optional
 
 import numpy as np
 from pandas import DataFrame
@@ -44,12 +45,6 @@ class WeightedSampleStatistics:
     ----------
     records_sum: grouped
         The summation of the weighted values
-    weights_sum: grouped
-        The summation of the weights
-    records_weighted_mean: grouped
-        The sample mean estimate
-    records_std grouped
-        The sample standard deviation estimate
     number_samples_sqrt: grouped
         The square root of the sample size n
     standard_error: grouped
@@ -58,173 +53,277 @@ class WeightedSampleStatistics:
 
     def __init__(
         self,
-        group_keys,
-        records_df_selection,
-        weights_df,
-        column_list=None,
-        var_type=None,
-        scaling_factor_key=None,
-        units_scaling_factor_key=None,
-        all_records_df=None,
-        var_weight_key=None,
-        variance_df_selection=None,
-        records_df_unfilled=None,
-        add_inverse=False,
-        report_numbers=False,
-        negation_suffix=None,
-        start=False,
-    ):
+        group_keys: Iterable,
+        records_df_selection: DataFrame,
+        weights_df: DataFrame,
+        column_list: Optional[Iterable] = None,
+        var_type: Optional[str] = None,
+        scaling_factor_key: Optional[str] = None,
+        units_scaling_factor_key: Optional[str] = None,
+        all_records_df: Optional[DataFrame] = None,
+        var_weight_key: Optional[str] = None,
+        variance_df_selection: Optional[DataFrame] = None,
+        records_df_unfilled: Optional[DataFrame] = None,
+        add_inverse: bool = False,
+        report_numbers: bool = False,
+        negation_suffix: Optional[str] = None,
+        start: bool = False,
+    ) -> None:
+        """
+        Initialize the WeightedSampleStatistics object.
+
+        This object is used to calculate weighted sample statistics for a given
+        DataFrame.
+        The object can be initialized with a set of records, weights, and a list of columns to
+        calculate statistics for.
+        The object can also be initialized with a set of all records, including non-response, and a
+        variable weight.
+        The object can also be initialized with a set of variance selection data and a set of
+        unfilled records.
+
+        Parameters
+        ----------
+        group_keys : Iterable
+            The variables to use for grouping.
+        records_df_selection : DataFrame
+            The DataFrame containing the selected records.
+        weights_df : DataFrame
+            The DataFrame containing the weights per unit.
+        column_list : Iterable, optional
+            List of columns to calculate statistics for.
+            Default is None.
+        var_type : str, optional
+            The type of the data.
+            Default is None.
+        scaling_factor_key : str, optional
+            The key for the scaling factor.
+            Default is None.
+        units_scaling_factor_key : str, optional
+            The key for the unit scaling factor.
+            Default is None.
+        all_records_df : DataFrame, optional
+            DataFrame containing all records, including non-response.
+            Default is None.
+        var_weight_key : str, optional
+            The key for the variable weight.
+            Default is None.
+        variance_df_selection : DataFrame, optional
+            DataFrame containing variance selection data.
+            Default is None.
+        records_df_unfilled : DataFrame, optional
+            DataFrame containing unfilled records.
+            Default is None.
+        add_inverse : bool, optional
+            Whether to add the negated value for booleans.
+            Default is False.
+        report_numbers : bool, optional
+            Whether to report numbers instead of calculating the average.
+            Default is False.
+        negation_suffix : str, optional
+            Suffix to use for negated values.
+            Default is "_x".
+        start : bool, optional
+            Whether to start calculations immediately.
+            Default is False.
+        """
+        # Initialize instance variables
         self.group_keys = group_keys
         self.records_df_selection = records_df_selection
-        self.records_norm_sel_df = None
-        self.records_norm_pop_df = None
-        self.variance_df_selection = variance_df_selection
-        self.records_df_unfilled = records_df_unfilled
-        self.records_df_selection_sqr = None
-        self.records_std_df = None
-        self.records_std_agg = None
-        self.records_var_df = None
-        self.records_var_agg = None
         self.weights_df = weights_df
-        self.all_records_df = all_records_df
-        self.column_list = column_list
+        self.column_list = column_list or []
         self.var_type = var_type
-        self.var_weight_key = var_weight_key
         self.scaling_factor_key = scaling_factor_key
         self.units_scaling_factor_key = units_scaling_factor_key
+        self.all_records_df = all_records_df
+        self.var_weight_key = var_weight_key
+        self.variance_df_selection = variance_df_selection
+        self.records_df_unfilled = records_df_unfilled
         self.add_inverse = add_inverse
         self.report_numbers = report_numbers
-        if negation_suffix is None:
-            self.negation_suffix = "_x"
-        else:
-            self.negation_suffix = negation_suffix
+        self.negation_suffix = negation_suffix or "_x"
+        self.group_keys = group_keys
+        self.records_df_selection = records_df_selection
+        self.weights_df = weights_df
+        self.column_list = column_list or []
+        self.var_type = var_type
+        self.scaling_factor_key = scaling_factor_key
+        self.units_scaling_factor_key = units_scaling_factor_key
+        self.all_records_df = all_records_df
+        self.var_weight_key = var_weight_key
+        self.variance_df_selection = variance_df_selection
+        self.records_df_unfilled = records_df_unfilled
+        self.add_inverse = add_inverse
+        self.report_numbers = report_numbers
+        self.negation_suffix = negation_suffix or "_x"
 
-        self.proportion_weighted_sel_df = None
-        self.proportion_weighted_pop_df = None
-
-        self.scale_variabele_pop_df = None
-        self.scale_variabele_sel_df = None
-        self.var_weight_pop_df = None
-        self.var_weight_sel_df = None
-        self.scale_variabele_pop_grp = None
-        self.scale_variabele_sel_grp = None
-        self.unweighted_means_grp = None
-        self.var_weight_pop_grp = None
-        self.weights_sel_grp = None
         self.weights_sel_sum_df = None
-        self.weights_pop_sum_df = None
+        self.scale_variabele_sel_grp = None
+        self.scale_variabele_pop_grp = None
         self.var_weight_sel_grp = None
-        self.records_df_valid = None
-        self.var_weights_sel_sum_df = None
-        self.var_weights_pop_sum_df = None
-        self.var_weights_sel_sum_agg = None
-        self.var_weights_pop_sum_agg = None
-        self.records_sum = None
-        self.response_count = None
-        self.sample_count_initial = None
-        self.valid_mask = None
-        self.weights_sum = None
-        self.mean_weight = None
-        self.records_weighted_mean = None
-        self.records_weighted_vars = None
-        self.records_std = None
-        self.records_var = None
-        self.n_sample = None
-        self.number_samples_sqrt = None
-        self.unweighted_mean = None
-        self.shifted_mean_df = None
-        self.shifted_mean_grp = None
-        self.standard_error = None
-        self.response_proportion = None
-        self.response_fraction: DataFrameType = None
-        self.variances_df = None
-        self.variances_grp = None
-        self.records_weighted_sel_grp = None
-        self.records_weighted_pop_grp = None
-        self.records_weighted_sel_mean_df = None
-        self.number_ratio = None
-        self.records_weighted_pop_mean_df = None
-        self.records_weighted_mean_agg = None
-        self.records_weighted_conditional_mean_agg = None
-        self.records_weighted_sel_df = None
-        self.records_weighted_pop_df = None
-        self.proportion_sel_df = None
-        self.proportion_pop_df = None
-        self.proportion_sel_grp = None
-        self.proportion_pop_grp = None
-        self.proportion_sel_mean_agg = None
-        self.proportion_pop_mean_agg = None
-        self.proportion_sel_mean_df = None
-        self.proportion_pop_mean_df = None
-
-        self.records_sel_grp = None
+        self.var_weight_pop_grp = None
+        self.unit_weights_pop_grp = None
+        self.unit_weights_sel_grp = None
+        self.weights_sel_grp = None
+        self.weights_grp = None
+        self.all_records_grp = None
         self.variance_sel_grp = None
         self.records_valid_grp = None
-        self.records_sel_sqr_grp = None
-        self.all_records_grp = None
+        self.records_sel_grp = None
+        self.unit_weights_pop_grp = None
+        self.unit_weights_sel_grp = None
+        self.weights_sel_grp = None
         self.weights_grp = None
+        self.all_records_grp = None
+        self.variance_sel_grp = None
+        self.records_valid_grp = None
+        self.records_sel_grp = None
         self.weights = None
+        self.records_df_valid = None
+        self.var_weight_sel_df = None
+        self.scale_variabele_sel_df = None
+        self.var_weight_pop_df = None
+        self.scale_variabele_pop_df = None
+        self.unit_weights_sel_df = None
         self.unit_weights_pop_df = None
         self.weights_sel_df = None
-        self.unit_weights_sel_df = None
-        self.unit_weights_sel_grp = None
-        self.unit_weights_pop_grp = None
-        self.unit_weights_sel_sum_df = None
-        self.unit_weights_pop_sum_df = None
-        self.records_weighted_mean_agg = None
-        self.weights_sel_sum_agg = None
-        self.weights_pop_sum_agg = None
-        self.weights_sel_normalized_df = None
-        self.weights_pop_normalized_df = None
-        self.unit_weights_sel_sum_agg = None
-        self.unit_weights_pop_sum_agg = None
+        self.response_fraction = None
 
+        self.weights = None
+        self.records_df_valid = None
+        self.var_weight_sel_df = None
+        self.scale_variabele_sel_df = None
+        self.var_weight_pop_df = None
+        self.scale_variabele_pop_df = None
+        self.unit_weights_sel_df = None
+        self.unit_weights_pop_df = None
+        self.weights_sel_df = None
+        self.standard_error = None
+        self.number_samples_sqrt = None
+        self.n_sample = None
+        self.records_std_df = None
+        self.records_std_agg = None
+        self.records_var_agg = None
+        self.records_var_df = None
+        self.proportion_pop_grp = None
+        self.proportion_pop_mean_agg = None
+        self.proportion_sel_grp = None
+        self.proportion_sel_mean_agg = None
+        self.proportion_weighted_pop_df = None
+        self.number_ratio = None
+        self.records_norm_sel_df = None
+        self.proportion_weighted_sel_df = None
+        self.proportion_pop_df = None
+        self.records_norm_pop_df = None
+        self.proportion_sel_df = None
+        self.records_sum = None
+        self.response_count = None
+        self.records_weighted_conditional_mean_agg = None
+        self.records_weighted_mean_agg = None
+        self.sample_count_initial = None
+        self.records_weighted_sel_mean_df = None
+        self.records_weighted_pop_mean_df = None
+        self.records_weighted_pop_grp = None
+        self.records_weighted_pop_df = None
+        self.records_weighted_sel_df = None
+        self.weights_pop_normalized_df = None
+        self.unit_weights_pop_sum_agg = None
+        self.var_weights_pop_sum_agg = None
+        self.var_weights_pop_sum_df = None
+        self.weights_sel_normalized_df = None
+        self.records_weighted_sel_grp = None
+        self.var_weights_sel_sum_df = None
+        self.unit_weights_pop_sum_df = None
+        self.unit_weights_sel_sum_agg = None
+        self.unit_weights_sel_sum_df = None
+        self.var_weights_sel_sum_agg = None
+        self.weights_pop_sum_agg = None
+        self.weights_sel_sum_agg = None
+        self.weights_pop_sum_df = None
+
+        # If start is True, begin calculations immediately
         if start:
             self.calculate()
 
-    def calculate(self):
+    def calculate(self) -> None:
+        """
+        Perform all calculations required for weighted sample statistics.
 
+        This method orchestrates the sequence of calculations necessary to
+        determine weighted means, proportions, and standard errors.
+        It also calculates the response fraction if all records are provided.
+
+        Returns
+        -------
+        None
+        """
+        # Set the mask for valid data entries
         self.set_mask_valid_df()
 
+        # Scale the variables based on the provided scaling factors
         self.scale_variables()
 
+        # Group the variables as per the specified grouping keys
         self.group_variables()
 
+        # Calculate the weighted means for the records
         self.calculate_weighted_means()
+
+        # If all records are available, calculate the response fraction
         if self.all_records_df is not None:
             self.calculate_response_fraction()
+
+        # Calculate the proportions for the selected and population data
         self.calculate_proportions()
+
+        # Calculate the standard errors for the estimates
         self.calculate_standard_errors()
 
     def scale_variables(self):
-        """scaling of variables"""
+        """Scale the variables with the scaling factor.
 
+        This function scales the variables by the scaling factor.
+        """
         logger.debug(f"Scaling variables with {self.scaling_factor_key}")
+
+        # The weights are the scaling factors
         self.weights = self.weights_df.loc[:, self.scaling_factor_key]
+
+        # The unit weights are the scaling factors for the population
         self.unit_weights_pop_df = self.weights_df.loc[:, self.units_scaling_factor_key]
+
+        # The fixed variables are the scaling variables
         fixed = set(list([self.var_weight_key, self.scaling_factor_key]))
+
+        # Check if the variable to process (stored in the column list) is a scaling variable
         if set(self.column_list).intersection(fixed):
-            # in case the variable to process (stored in the column list) is a scaling variable,
+            # In case the variable to process (stored in the column list) is a scaling variable,
             # we do not scale it, so set the weights to 1
             self.weights.values[:] = 1.0
 
+        # The weights for the selection are the same as the weights
         self.weights_sel_df = self.weights.reindex(self.records_df_selection.index)
+
+        # The unit weights for the selection are the same as the unit weights
         self.unit_weights_sel_df = self.unit_weights_pop_df.reindex(
             self.records_df_selection.index
         )
 
+        # The scale variable for the population is the variable to be scaled
         self.scale_variabele_pop_df = self.weights_df[self.var_weight_key]
+
+        # The scale variable for the selection is the same as the scale variable for the population
         self.scale_variabele_sel_df = self.scale_variabele_pop_df.reindex(
             self.records_df_selection.index
         )
 
-        # Nu we de teller hebben vermenigvuldigd moeten we ook de noemer doen (bij units is dit
-        # 1 (maakt dus niet uit. Maar bij wp is dit wel een ander getal)
-        # laat weight intact. In bereken je de populatie variable van het gewicht
-
+        # Now we have the numerator, we also need to scale the denominator.
+        # The variable to be scaled for the population is the scaling factor times the variable
         self.var_weight_pop_df = (
             self.weights_df[self.scaling_factor_key] * self.scale_variabele_pop_df
         )
+
+        # The variable to be scaled for the selection is the same as the variable to be scaled
+        # for the population
         self.var_weight_sel_df = self.var_weight_pop_df.reindex(
             self.records_df_selection.index
         )
@@ -232,45 +331,78 @@ class WeightedSampleStatistics:
     def set_mask_valid_df(self):
         """Set mask valid df
 
+        This function sets the mask for the valid records for the
+        selected variables.
+        This mask is used to select the valid records from the dataframe of the population.
+
         Returns
         -------
         None
         """
+        logger.debug("Setting mask for valid records")
+
         if self.records_df_unfilled is not None:
+            logger.debug("Set mask for valid records to True if not NaN")
             self.records_df_valid = ~self.records_df_unfilled.isna()
             try:
+                logger.debug("Select only columns in self.column_list")
                 self.records_df_valid = self.records_df_valid[self.column_list]
             except KeyError:
+                logger.debug("No valid columns found in records_df_unfilled")
                 col = re.sub(r"_\d\.\d", "", self.column_list[0])
                 try:
+                    logger.debug("Select only column in self.column_list")
                     self.records_df_valid = self.records_df_valid[col]
                 except KeyError:
+                    logger.debug("No valid columns found in records_df_unfilled")
                     self.records_df_valid = None
 
     def group_variables(self):
-        """make the groups for the variables"""
+        """Group the variables according to the group keys.
+
+        This function groups the variables and the weights according to the
+        specified group keys.
+        The grouped variables are stored as attributes of the class for later use.
+
+        Returns
+        -------
+        None
+        """
         logger.debug(f"Grouping variables with {self.group_keys}")
+        # Group the records according to the group keys
         self.records_sel_grp = self.records_df_selection.groupby(self.group_keys)
+
+        # Group the variance (if it is present)
         if self.variance_df_selection is not None:
             self.variance_sel_grp = self.variance_df_selection.groupby(self.group_keys)
 
+        # Group the valid records
         if self.records_df_valid is not None:
             self.records_valid_grp = self.records_df_valid.groupby(self.group_keys)
 
+        # Group the all records (if it is present)
         if self.all_records_df is not None:
+            # Add the variable weight to the all records if it is not present
             if self.var_weight_key not in self.all_records_df.columns:
                 self.all_records_df[self.var_weight_key] = 1
+            # Group the all records
             self.all_records_grp = self.all_records_df[self.var_weight_key].groupby(
                 self.group_keys
             )
+
+        # Group the weights
         self.weights_grp = self.weights.groupby(self.group_keys)
         self.weights_sel_grp = self.weights_sel_df.groupby(self.group_keys)
 
+        # Group the unit weights
         self.unit_weights_sel_grp = self.unit_weights_sel_df.groupby(self.group_keys)
         self.unit_weights_pop_grp = self.unit_weights_pop_df.groupby(self.group_keys)
 
+        # Group the variable weights
         self.var_weight_pop_grp = self.var_weight_pop_df.groupby(self.group_keys)
         self.var_weight_sel_grp = self.var_weight_sel_df.groupby(self.group_keys)
+
+        # Group the scaled variables
         self.scale_variabele_pop_grp = self.scale_variabele_pop_df.groupby(
             self.group_keys
         )
@@ -279,94 +411,90 @@ class WeightedSampleStatistics:
         )
 
     def calculate_weighted_means(self):
-        """Calculate summed weighted_sample_statistics
+        """Calculate summed weighted statistics for the selected columns.
+
+        This method calculates the weighted sums and means for the selected
+        columns in the dataset.
+        It normalizes weights, applies them to the records, and handles special cases such as
+        empty selections and negation of values.
 
         Returns
         -------
         None
         """
-        logger.debug(
-            f"Start calculation summed weighted_sample_statistics for {self.column_list}"
-        )
+        logger.debug(f"Start calculation summed weighted_sample_statistics for {self.column_list}")
+
         if "omzet_enq" in self.column_list:
             logger.debug("Stop hier")
+            return
 
-        # for the rest: calculate the sums
+        # Calculate the sum of weights for selection and population
         self.weights_sel_sum_df = self.weights_sel_grp.transform("sum")
         self.weights_pop_sum_df = self.weights_grp.transform("sum")
         self.weights_sel_sum_agg = self.weights_sel_grp.sum()
         self.weights_pop_sum_agg = self.weights_grp.sum()
+
+        # Calculate the sum of unit weights for selection and population
         self.unit_weights_sel_sum_df = self.unit_weights_sel_grp.transform("sum")
         self.unit_weights_pop_sum_df = self.unit_weights_pop_grp.transform("sum")
+
+        # Calculate the sum of variable weights for selection and population
         self.var_weights_sel_sum_df = self.var_weight_sel_grp.transform("sum")
         self.var_weights_pop_sum_df = self.var_weight_pop_grp.transform("sum")
         self.var_weights_sel_sum_agg = self.var_weight_sel_grp.sum()
         self.var_weights_pop_sum_agg = self.var_weight_pop_grp.sum()
+
+        # Aggregate sum of unit weights for selection and population
         self.unit_weights_sel_sum_agg = self.unit_weights_sel_grp.sum()
         self.unit_weights_pop_sum_agg = self.unit_weights_pop_grp.sum()
-        # deze regels veroorzaken een warning van multi.py 3587: the values are unorderable
-        # is nu verholpen door het weghalen van de lege indices
-        logger.debug(f"normalizing weights with sums in selection")
-        self.weights_sel_normalized_df = self.weights.div(
-            self.weights_sel_sum_df, axis="index"
-        )
-        logger.debug(f"normalizing weights with sums in population")
-        self.weights_pop_normalized_df = self.weights.div(
-            self.weights_pop_sum_df, axis="index"
-        )
 
-        logger.debug(f"applying weights to records")
-        self.records_weighted_sel_df = self.records_df_selection.mul(
-            self.weights_sel_normalized_df, axis="index"
-        )
-        self.records_weighted_pop_df = self.records_df_selection.mul(
-            self.weights_pop_normalized_df, axis="index"
-        )
-        self.records_weighted_sel_grp = self.records_weighted_sel_df.groupby(
-            self.group_keys
-        )
-        self.records_weighted_pop_grp = self.records_weighted_pop_df.groupby(
-            self.group_keys
-        )
-        self.records_weighted_sel_mean_df = self.records_weighted_sel_grp.transform(
-            "sum"
-        )
-        self.records_weighted_pop_mean_df = self.records_weighted_pop_grp.transform(
-            "sum"
-        )
+        # Normalize weights with selection sums
+        logger.debug(f"Normalizing weights with sums in selection")
+        self.weights_sel_normalized_df = self.weights.div(self.weights_sel_sum_df, axis="index")
 
-        logger.debug(f"calculating weighted means")
+        # Normalize weights with population sums
+        logger.debug(f"Normalizing weights with sums in population")
+        self.weights_pop_normalized_df = self.weights.div(self.weights_pop_sum_df, axis="index")
+
+        # Apply normalized weights to records
+        logger.debug(f"Applying weights to records")
+        self.records_weighted_sel_df = self.records_df_selection.mul(self.weights_sel_normalized_df, axis="index")
+        self.records_weighted_pop_df = self.records_df_selection.mul(self.weights_pop_normalized_df, axis="index")
+
+        # Group weighted records by selection and population
+        self.records_weighted_sel_grp = self.records_weighted_sel_df.groupby(self.group_keys)
+        self.records_weighted_pop_grp = self.records_weighted_pop_df.groupby(self.group_keys)
+
+        # Transform to get summed weighted means
+        self.records_weighted_sel_mean_df = self.records_weighted_sel_grp.transform("sum")
+        self.records_weighted_pop_mean_df = self.records_weighted_pop_grp.transform("sum")
+
+        # Aggregate weighted means
+        logger.debug(f"Calculating weighted means")
         self.records_weighted_mean_agg = self.records_weighted_pop_grp.sum()
         self.records_weighted_conditional_mean_agg = self.records_weighted_sel_grp.sum()
 
-        logger.debug(f"calculating conditional weighted means")
-        self.records_sum = self.records_weighted_conditional_mean_agg.mul(
-            self.weights_sel_sum_agg, axis="index"
-        )
+        # Calculate the sum of conditional weighted means
+        logger.debug(f"Calculating conditional weighted means")
+        self.records_sum = self.records_weighted_conditional_mean_agg.mul(self.weights_sel_sum_agg, axis="index")
 
-        # If your selection is empty because no company within the group meets the filter condition
-        # is sufficient, then the sum is set to nan.
-        # Now make that 0 again.
-        logger.debug(f"Fill nan's with 0")
+        # Handle NaN values by filling them with 0
+        logger.debug(f"Fill NaN's with 0")
         self.records_sum = self.records_sum.astype(float).fillna(0)
 
+        # Add negated values if required
         if self.add_inverse:
             for col_name in self.records_sum:
                 new_col = make_negation_name(col_name, self.negation_suffix)
                 logger.debug(f"Creating new negated column {new_col}")
-                # Determine the sum of the population.
-                # For an empty population, the index of the records_sum is interpolated on the population sum,
-                # so that we have both items and set the nan to 0.
-                # This also ensures that the negated variable always exists, and 0 is if the population is zero
-                filter_sum = self.var_weights_sel_sum_agg.reindex(
-                    self.records_sum.index
-                ).fillna(0)
+                filter_sum = self.var_weights_sel_sum_agg.reindex(self.records_sum.index).fillna(0)
                 self.records_sum[new_col] = filter_sum - self.records_sum[col_name]
 
+        # Count the response for each group
         self.response_count = self.weights_grp.count()
 
+        # Convert to percentage if variable type is boolean or dictionary
         if self.var_type in ("bool", "dict"):
-            # naar percentage omrekenen
             self.records_weighted_mean_agg *= 100
             self.records_weighted_conditional_mean_agg *= 100
 
