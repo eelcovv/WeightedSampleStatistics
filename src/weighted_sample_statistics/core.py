@@ -301,32 +301,34 @@ class WeightedSampleStatistics:
             self.weights.values[:] = 1.0
 
         # The weights for the selection are the same as the weights
-        self.weights_sel_df = self.weights.reindex(self.records_df_selection.index)
+        self.weights_sel_df = self.weights.reindex(self.records_df_selection.index).astype(float)
 
         # The unit weights for the selection are the same as the unit weights
         self.unit_weights_sel_df = self.unit_weights_pop_df.reindex(
             self.records_df_selection.index
-        )
+        ).astype(float)
 
         # The scale variable for the population is the variable to be scaled
-        self.scale_variabele_pop_df = self.weights_df[self.var_weight_key]
+        self.scale_variabele_pop_df = self.weights_df[self.var_weight_key].astype(float)
 
         # The scale variable for the selection is the same as the scale variable for the population
         self.scale_variabele_sel_df = self.scale_variabele_pop_df.reindex(
             self.records_df_selection.index
-        )
+        ).astype(float)
 
         # Now we have the numerator, we also need to scale the denominator.
         # The variable to be scaled for the population is the scaling factor times the variable
         self.var_weight_pop_df = (
             self.weights_df[self.scaling_factor_key] * self.scale_variabele_pop_df
         )
+        self.var_weight_pop_df = self.var_weight_pop_df.astype(float)
 
         # The variable to be scaled for the selection is the same as the variable to be scaled
         # for the population
         self.var_weight_sel_df = self.var_weight_pop_df.reindex(
             self.records_df_selection.index
         )
+        self.var_weight_sel_df = self.var_weight_sel_df.astype(float)
 
     def set_mask_valid_df(self):
         """Set mask valid df

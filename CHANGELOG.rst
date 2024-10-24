@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 0.1.3
+=============
+- Code reformat with codeium
+- Bug fix for variances
+
 Version 0.1.2
 =============
 - Changed name run method to calculate
