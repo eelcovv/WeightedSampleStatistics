@@ -13,104 +13,49 @@ from pandas import DataFrame
 logger = logging.getLogger(__name__)
 
 
-def make_negation_name(column_name, suffix="_x") -> str:
+def make_negation_name(column_name: str, suffix: str = "_x") -> str:
     """Make a new column name based for the negative value
 
     Returns
     -------
-    new_col : str
+    negation_name : str
     """
-    match = re.search("(_\d\.\d)$", column_name)
-    if match:
-        # column ends with _1.0, make the new name like _x_1.0
-        new_col = "".join([re.sub("_\d\.\d$", "", column_name), suffix]) + match.group(
-            1
-        )
-    else:
-        new_col = "".join([column_name, suffix])
-    return new_col
+    negation_name = re.sub("_\d\.\d$", "", column_name) + suffix
+    if re.search("_\d\.\d$", column_name):
+        negation_name += re.search("_\d\.\d$", column_name).group()
+    return negation_name
 
 
-def rename_all_variables(dataframe, variables) -> None:
-    """Rename all the columns of data as defined int the *variable* dictionary
+def rename_variables(dataframe: pd.DataFrame, variables: pd.DataFrame) -> None:
+    """Rename dataframe columns according to the variables DataFrame
 
     Parameters
     ----------
-    dataframe: Dataframe
-        Dataframe for which we want to rename the columns
-    variables: DataFrame
-        Dataframe of the variables with the index the name of the new variable
-
-    Notes
-    -----
-    * This function checks if a variable is defined multiple times and raises a warning in that case
-    * The dataframe is changed in place.
-    Nothing is returned
+    dataframe : pd.DataFrame
+        Dataframe to rename columns
+    variables : pd.DataFrame
+        Dataframe with new column names and their corresponding original names
 
     Returns
     -------
     None
     """
-    new_names = dict()
+    rename_dict = {}
     for var_name, var_props in variables.iterrows():
-        try:
-            original_name = var_props["original_name"]
-        except KeyError:
+        original_name = var_props.get("original_name")
+        if original_name is None:
             logger.warning(f"No original name defined for {var_name}. Skipping")
-            # if the original name is not defined, just continue.
             continue
-        # in case the name of the new variable is the same as the original, skip it
         if original_name == var_name:
             logger.debug(f"Original name the same as varname: {var_name}. Skipping")
             continue
-        if original_name is None:
-            logger.debug(f"Original name not defined for varname: {var_name}. Skipping")
-            continue
-
-        logger.debug(f"Renaming {original_name} -> {var_name}")
-
-        # in the csv file, all dots are replaced with _. In DVZ not. Therefore, sync here to _
-        original_name_dash = original_name.replace(".", "_")
-
-        if original_name_dash != original_name:
-            logger.debug(f"Original name has dashed equivalent: {original_name_dash}")
-
-        # now check if this column name was not already set before by another variable
-        if original_name in new_names.keys():
-            other = new_names[original_name]
-        elif original_name_dash in new_names.keys():
-            other = new_names[original_name_dash]
-        else:
-            other = None
-
-        if other is not None:
+        if original_name in rename_dict:
             logger.warning(
-                "Variable {} corresponds to original {} which was already defined by {}"
-                "".format(var_name, original_name, other)
+                f"Original name {original_name} already defined for {rename_dict[original_name]}. Skipping"
             )
-            logger.warning("Assuming that we need to duplicate this columns")
-            original_name_new = "_".join([original_name, var_name])
-            dataframe[original_name_new] = dataframe[original_name]
-            original_name = original_name_new
-
-        # nope, it was not set before. Now also check if the original name as defined by
-        # the variable is available in our data frame. If not, raise a warning
-        if original_name in dataframe.columns:
-            logger.debug("Rename variable {} -> {}".format(original_name, var_name))
-            new_names[original_name] = var_name
-        elif original_name_dash in dataframe.columns:
-            logger.debug(
-                "Rename variable {} -> {}".format(original_name_dash, var_name)
-            )
-            new_names[original_name_dash] = var_name
-        else:
-            logger.debug(
-                "Variable {} as defined in {}  is not available"
-                "".format(original_name, var_name)
-            )
-    # now rename all the variables
-    dataframe.rename(columns=new_names, inplace=True)
-    logger.debug("Done renaming")
+            continue
+        rename_dict[original_name] = var_name
+    dataframe.rename(columns=rename_dict, inplace=True)
 
 
 def get_records_select(
