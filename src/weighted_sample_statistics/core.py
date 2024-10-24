@@ -540,7 +540,11 @@ class WeightedSampleStatistics:
 
         sum_unit_weight = self.unit_weights_sel_sum_df
         sum_weight = self.var_weights_sel_sum_df
-        self.number_ratio = sum_unit_weight.div(sum_weight, axis="index")
+        try:
+            self.number_ratio = sum_unit_weight.div(sum_weight, axis="index")
+        except AttributeError as err:
+            logger.warning(f"{err}")
+            return
 
         self.proportion_sel_df = 100 * self.records_norm_sel_df
         self.proportion_pop_df = 100 * self.records_norm_pop_df
