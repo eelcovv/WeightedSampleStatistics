@@ -4,13 +4,15 @@ Some utility functions.
 
 import logging
 import re
-from typing import Optional
+from typing import Optional, Tuple, TypeVar, List, Any
 
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
 logger = logging.getLogger(__name__)
+
+DataFrameType = TypeVar("DataFrameType", bound=DataFrame)
 
 
 def make_negation_name(column_name: str, suffix: str = "_x") -> str:
@@ -26,14 +28,24 @@ def make_negation_name(column_name: str, suffix: str = "_x") -> str:
     return negation_name
 
 
-def rename_variables(dataframe: pd.DataFrame, variables: pd.DataFrame) -> None:
-    """Rename dataframe columns according to the variables DataFrame
+def rename_variables(dataframe: DataFrameType, variables: DataFrameType) -> None:
+    """
+    Rename dataframe columns according to the variables DataFrame
+
+    This function takes a dataframe and a variables dataframe as input and
+    renames the columns in the dataframe according to the original names in
+    the variables dataframe.
+
+    If the original name is not defined for a variable, the variable will be
+    skipped.
+    If the original name is already defined for another variable, the
+    variable will also be skipped.
 
     Parameters
     ----------
-    dataframe : pd.DataFrame
+    dataframe : DataFrameType
         Dataframe to rename columns
-    variables : pd.DataFrame
+    variables : DataFrameType
         Dataframe with new column names and their corresponding original names
 
     Returns
@@ -59,141 +71,124 @@ def rename_variables(dataframe: pd.DataFrame, variables: pd.DataFrame) -> None:
 
 
 def get_records_select(
-    dataframe,
-    variables,
-    var_type,
-    column,
-    column_list,
-    output_format,
-    var_filter,
-    scaling_suffix=None,
-):
+    dataframe: DataFrameType,
+    variables: DataFrameType,
+    var_type: str,
+    column: str,
+    column_list: List[str],
+    output_format: str,
+    var_filter: Any,
+    scaling_suffix: Optional[str] = None,
+) -> Tuple[Optional[DataFrameType], Optional[List[str]]]:
     """Get records select
+
+    Retrieves selected records from the dataframe based on a given column and
+    variable type, and applies filtering and scaling as necessary.
 
     Parameters
     ----------
-    scaling_suffix
-    dataframe
-    variables
-    var_type
-    column
-    column_list
-    output_format
-    var_filter
+    dataframe : DataFrameType
+        The input data frame containing data to be filtered.
+    variables : DataFrameType
+        A DataFrame containing variable properties.
+    var_type : str
+        The type of the variable (e.g., 'dict', 'float').
+    column : str
+        The column to be processed.
+    column_list : List[str]
+        List of columns to be included in the output.
+    output_format : str
+        The format of the output.
+    var_filter : Any
+        Filter applied to the data.
+    scaling_suffix : Optional[str], optional
+        Suffix used for scaling, by default None.
 
     Returns
     -------
-    records_selection
-    column_list
+    selected_records : Optional[DataFrameType]
+        DataFrame with selected records, or None if the column is missing.
+    updated_column_list : Optional[List[str]]
+        Updated list of columns, or None if the column is missing.
     """
-    ratio_units_key = "ratio_units"
-    records_selection = None
-    if scaling_suffix is not None:
-        ratio_units_key = "_".join([ratio_units_key, scaling_suffix])
-        logger.debug(f"Adapted ratio units for scaling suffix to {ratio_units_key}")
-    if column in (ratio_units_key, "units"):
-        # We willen altijd units in de output. Nu wel expliciet weggooien
-        logger.debug(f"creating eurostat specific column: {column}")
-        try:
-            records_selection = dataframe.loc[:, column_list]
-        except KeyError as err:
-            logger.warning(f"{err}\nYou are missing scaling ratio {column_list}")
+    selected_records = None
+    ratio_units_key = (
+        f"ratio_units_{scaling_suffix}" if scaling_suffix else "ratio_units"
+    )
 
-    if records_selection is None:
+    if column in (ratio_units_key, "units"):
         try:
-            records_selection = get_filtered_data_column(
+            selected_records = dataframe.loc[:, column_list]
+        except KeyError as err:
+            logger.warning(f"{err}\nMissing scaling ratio for columns: {column_list}")
+
+    if selected_records is None:
+        try:
+            selected_records = get_filtered_data_column(
                 dataframe=dataframe,
                 column=column,
                 var_filter=var_filter,
                 output_format=output_format,
             )
-        except KeyError as err:
-            logger.warning(f"{err}\nYou are missing column {column}")
+        except KeyError:
+            logger.warning(f"Missing column: {column}")
             return None, None
 
-        if var_type == "dict" and records_selection is not None:
-            newcols = None
-            dfdummy = pd.get_dummies(records_selection[column], prefix=column)
-            renames = dict()
-            for col in dfdummy.columns:
-                match = re.search(r"_\d$", col)
-                if bool(match):
-                    col_with_zero = col + ".0"
-                    renames[col] = col_with_zero
-            if renames:
-                dfdummy.rename(columns=renames, inplace=True)
-            try:
-                optkeys = variables.loc[column, "options"].keys()
-            except AttributeError as err:
-                logger.info(err)
-            else:
-                # maak een lijst van name die je verwacht: download_1.0, download_2.0, etc
-                try:
-                    col_exp = [
-                        "_".join([column, "{:.1f}".format(float(op))]) for op in optkeys
-                    ]
-                except ValueError:
-                    optkeys = variables.loc[column, "translateopts"].values()
-                    col_exp = [
-                        "_".join([column, "{:.1f}".format(float(op))]) for op in optkeys
-                    ]
-                # Als een category niet voorkomt, dan wordt hij niet aangemaakt. Check
-                # wat we missen en vul aan met 0
-                missing = set(col_exp).difference(dfdummy.columns)
-                try:
-                    for col in list(missing):
-                        dfdummy.loc[:, col] = 0
-                except ValueError:
-                    # fails for variance df, but we only need the expected column names only
-                    newcols = col_exp
+    if var_type == "dict" and selected_records is not None:
+        df_dummies = pd.get_dummies(selected_records[column], prefix=column)
+        renames = {
+            col: f"{col}.0" for col in df_dummies.columns if re.search(r"_\d$", col)
+        }
+        if renames:
+            df_dummies.rename(columns=renames, inplace=True)
 
-            if newcols is None:
-                # new cols are still none, so this succeeded for the normal records_df. Fill in
-                newcols = dfdummy.columns.to_list()
-            # newcols.append(column)
-            var_type = "bool"
-            records_selection = records_selection.join(dfdummy)
-            records_selection.drop(column, axis=1, inplace=True)
-            column_list = list(newcols)
-        else:
-            column_list = list([column])
+        try:
+            option_keys = variables.loc[column, "options"].keys()
+        except AttributeError:
+            option_keys = variables.loc[column, "translateopts"].values()
 
-    if var_type in ("float", "int", "unknown") and column not in (
+        col_exp = [f"{column}_{float(op):.1f}" for op in option_keys]
+        missing_cols = set(col_exp).difference(df_dummies.columns)
+        for col in missing_cols:
+            df_dummies[col] = 0
+
+        selected_records = selected_records.join(df_dummies).drop(column, axis=1)
+        column_list = df_dummies.columns.to_list()
+
+    elif var_type in ("float", "int", "unknown") and column not in (
         "ratio_units",
         "units",
     ):
+        df_num = selected_records.astype(float).select_dtypes(include=[np.number])
+        non_numeric_cols = set(selected_records.columns) - set(df_num.columns)
+        if non_numeric_cols:
+            logger.warning(f"Non-numerical columns found: {non_numeric_cols}")
+        selected_records = df_num.copy()
 
-        df_num = records_selection.astype(float).select_dtypes(include=[np.number])
-        diff = [
-            cn
-            for cn in records_selection.columns.values
-            if cn not in df_num.columns.values
-        ]
-        if diff:
-            logger.warning(
-                "Non-numerical columns found in float/int columns:\n" "{}".format(diff)
-            )
-        # make a real copy of the numerical values to prevent changing the main group
-        records_selection = df_num.copy()
-
-    return records_selection, column_list
+    return selected_records, column_list
 
 
 def prepare_df_for_statistics(
     dataframe, index_names, units_key="units", regional=None, region="nuts0"
-) -> DataFrame:
+) -> DataFrameType:
     """Prepare dataframe for the statistics calculation
 
     Args:
-        dataframe (DataFrame): the data frame with a normal index and columns containing at least the dimensions
+        dataframe (DataFrameType):
+            the data frame with a normal index and columns containing at least the dimensions
         index_names (list): the index names to use for your statistical breakdown
-        units_key (str, optional): name of the unity column. This column is added to your dataframe. Defaults to 'units'
-        regional (dict, optional): the regional column names to use for your statistical breakdown. Defaults to None.
-        region (str, options): The name of the region in case we want to select on regional data. Defaults to "nuts0",
+        units_key (str, optional): name of the unity column.
+            This column is added to your dataframe.
+            Defaults to 'units'
+        regional (dict, optional):
+            The regional column names to use for your statistical breakdown.
+        Defaults to None.
+        region (str, options): The name of the region in case we want to select on regional data.
+        Defaults to "nuts0",
             which is the whole country as a region
 
     Returns:
-        DataFrame: The new data frame with statistical breakdown on the index
+        DataFrameType: The new data frame with statistical breakdown on the index
 
     Notes:
         * This function modifies your dataframe in orde to set the breakdown on the index.
@@ -226,8 +221,8 @@ def prepare_df_for_statistics(
 
 
 def reorganise_stat_df(
-    records_stats: pd.DataFrame,
-    variables: pd.DataFrame,
+    records_stats: DataFrameType,
+    variables: DataFrameType,
     variable_key: str,
     use_original_names: bool = False,
     n_digits: Optional[int] = 3,
@@ -235,16 +230,16 @@ def reorganise_stat_df(
     module_key: str = "module",
     vraag_key: str = "vraag",
     optie_key: str = "optie",
-) -> pd.DataFrame:
+) -> DataFrameType:
     """
     Reorganise the statistics data frame so that the variables and choice are on the index
     and the records are on the columns.
 
     Parameters
     ----------
-    records_stats : pd.DataFrame
+    records_stats : DataFrameType
         The input data frame with statistics
-    variables : pd.DataFrame
+    variables : DataFrameType
         The data frame with the variables
     variable_key : str
         The key of the variable column
@@ -268,7 +263,7 @@ def reorganise_stat_df(
 
     Returns
     -------
-    pd.DataFrame
+    DataFrameType
         The reorganised data frame with variables and choice on the index and records on the columns.
     """
     # First, select the columns we need
@@ -312,7 +307,7 @@ def get_filtered_data_column(dataframe, column, var_filter=None, output_format=N
 
     Parameters
     ----------
-    dataframe: pd.DataFrame
+    dataframe: DataFrameType
         All data
     column: str
         Name of the column to select
@@ -331,7 +326,7 @@ def get_filtered_data_column(dataframe, column, var_filter=None, output_format=N
 
     Returns
     -------
-    pd.DataFrame:
+    DataFrameType:
         Data column to be used for the statistic
     """
     # Select the column data, optionally filtered if a filter variable is given
@@ -345,31 +340,30 @@ def get_filtered_data_column(dataframe, column, var_filter=None, output_format=N
                 f"Trying to get filter variable for {column} with {var_filter}"
             )
             try:
-                var_filt = var_filter[output_format]
+                variable_filter: object = var_filter[output_format]
             except KeyError:
                 # If the variable is not provided in the dict, select all data
-                var_filt = None
+                variable_filter = None
         else:
             # Filter is given as a key: value, so set it for all outputs
-            var_filt = var_filter
+            variable_filter = var_filter
 
-        if var_filt is None:
-            # If var_filt is None, the dict had no entry for this output, select all data
+        if variable_filter is None:
+            # If variable_filter is None, the dict had no entry for this output, select all data
             logger.debug(
                 f"No valid entry for {var_filter} in {column} for {output_format}. Take all data"
             )
             records_selection = dataframe.loc[:, [column]]
         else:
             try:
-                mask = dataframe[var_filt] == 1
+                mask = dataframe[variable_filter] == 1
             except KeyError:
-                # var_filt is given, but this column does not exist. Warn and skip
+                # variable_filter is given, but this column does not exist. Warn and skip
                 logger.warning(
-                    f"KeyError for {column}: {var_filt}. Provided filter column does not exist!"
+                    f"KeyError for {column}: {variable_filter}. Provided filter column does not exist!"
                 )
-                # Er is een var_filt gegeven, maar deze kolom bestaat niet. Waarschuw en sla over
                 logger.warning(
-                    f"KeyError for {column}: {var_filt}. Opgeven filter column bestaat "
+                    f"KeyError for {column}: {variable_filter}. Opgeven filter column bestaat "
                     f"niet!"
                 )
                 records_selection = None
