@@ -17,19 +17,31 @@ class VariableProperties:
     """
 
     def __init__(self, variables, column, skip_columns=None):
-        """Constructor of the class"""
+        """
+        Initialize the VariableProperties object.
+
+        Parameters
+        ----------
+        variables : DataFrame
+            DataFrame containing the variables.
+        column : str
+            The name of the column containing the variables.
+        skip_columns : list, optional
+            List of columns to skip.
+            Default is None.
+        """
         self.variables = variables
         self.column = column
         self.skip_columns = skip_columns
-        self.type = None
-        self.gewicht = None
-        self.filter = None
-        self.report_conditional = False
-        self.report_number = False
-        self.eval = None
-        self.negation_suffix = None
-        self.module_key = None
-        self.get_valid_var_type()
+        self.type = None  # Variable type
+        self.gewicht = None  # Weight of the variable
+        self.filter = None  # Filter applied to the variable
+        self.report_conditional = False  # Flag for conditional reporting
+        self.report_number = False  # Flag for number reporting
+        self.eval = None  # Evaluation expression
+        self.negation_suffix = None  # Suffix for negated variables
+        self.module_key = None  # Key for module association
+        self.get_valid_var_type()  # Validate and set variable type
 
     def get_valid_var_type(self) -> None:
         """Check if the variable type is valid and return"""

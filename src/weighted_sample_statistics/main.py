@@ -116,6 +116,6 @@ if __name__ == "__main__":
     # After installing your project with pip, users can also run your Python
     # modules as scripts via the ``-m`` flag, as defined in PEP 338::
     #
-    #     python -m Weightedweighted_sample_statistics.skeleton 42
+    #     python -m weighted_sample_statistics.skeleton 42
     #
     run()
