@@ -451,10 +451,12 @@ class WeightedSampleStatistics:
         # Normalize weights with selection sums
         logger.debug(f"Normalizing weights with sums in selection")
         self.weights_sel_normalized_df = self.weights.div(self.weights_sel_sum_df, axis="index")
+        self.weights_sel_normalized_df = self.weights_sel_normalized_df.reindex(self.weights_sel_sum_df.index)
 
         # Normalize weights with population sums
         logger.debug(f"Normalizing weights with sums in population")
         self.weights_pop_normalized_df = self.weights.div(self.weights_pop_sum_df, axis="index")
+        self.weights_pop_normalized_df = self.weights_pop_normalized_df.reindex(self.weights_pop_normalized_df.index)
 
         # Apply normalized weights to records
         logger.debug(f"Applying weights to records")
@@ -591,10 +593,14 @@ class WeightedSampleStatistics:
             weights_sel_normalized_df_squared = np.square(
                 self.weights_sel_normalized_df
             )
-            records_square = self.variance_df_selection
-            records_var = records_square.mul(
-                weights_sel_normalized_df_squared, axis="index"
-            )
+            records_square = self.variance_df_selection.astype(float)
+            try:
+                records_var = records_square.mul(
+                    weights_sel_normalized_df_squared, axis="index"
+                )
+            except TypeError as err:
+                logger.warning(err)
+                return 
 
         records_var_grp = records_var.groupby(self.group_keys)
         self.records_var_df = records_var_grp.transform("sum")
