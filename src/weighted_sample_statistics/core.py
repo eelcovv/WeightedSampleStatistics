@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def make_negation_name(column_name: str, suffix: str = "_x") -> str:
-    """Make a new column name based for the negative value
+    """Make a new column name for complementary values.
 
     Returns
     -------
