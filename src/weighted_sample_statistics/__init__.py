@@ -10,4 +10,3 @@ finally:
     del version, PackageNotFoundError
 
 from .core import WeightedSampleStatistics as WeightedSampleStatistics
-from .utils import make_negation_name as make_negation_name
