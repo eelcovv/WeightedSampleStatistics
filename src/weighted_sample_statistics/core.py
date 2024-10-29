@@ -13,6 +13,7 @@ DataFrameType = Union[DataFrame, None]
 
 logger = logging.getLogger(__name__)
 
+
 def make_negation_name(column_name: str, suffix: str = "_x") -> str:
     """Make a new column name based for the negative value
 
@@ -24,6 +25,7 @@ def make_negation_name(column_name: str, suffix: str = "_x") -> str:
     if re.search("_\d\.\d$", column_name):
         negation_name += re.search("_\d\.\d$", column_name).group()
     return negation_name
+
 
 class WeightedSampleStatistics:
     """
@@ -310,7 +312,9 @@ class WeightedSampleStatistics:
             self.weights.values[:] = 1.0
 
         # The weights for the selection are the same as the weights
-        self.weights_sel_df = self.weights.reindex(self.records_df_selection.index).astype(float)
+        self.weights_sel_df = self.weights.reindex(
+            self.records_df_selection.index
+        ).astype(float)
 
         # The unit weights for the selection are the same as the unit weights
         self.unit_weights_sel_df = self.unit_weights_pop_df.reindex(
@@ -433,7 +437,9 @@ class WeightedSampleStatistics:
         -------
         None
         """
-        logger.debug(f"Start calculation summed weighted_sample_statistics for {self.column_list}")
+        logger.debug(
+            f"Start calculation summed weighted_sample_statistics for {self.column_list}"
+        )
 
         if "omzet_enq" in self.column_list:
             logger.debug("Stop hier")
@@ -461,26 +467,46 @@ class WeightedSampleStatistics:
 
         # Normalize weights with selection sums
         logger.debug(f"Normalizing weights with sums in selection")
-        self.weights_sel_normalized_df = self.weights.div(self.weights_sel_sum_df, axis="index")
-        self.weights_sel_normalized_df = self.weights_sel_normalized_df.reindex(self.weights_sel_sum_df.index)
+        self.weights_sel_normalized_df = self.weights.div(
+            self.weights_sel_sum_df, axis="index"
+        )
+        self.weights_sel_normalized_df = self.weights_sel_normalized_df.reindex(
+            self.weights_sel_sum_df.index
+        )
 
         # Normalize weights with population sums
         logger.debug(f"Normalizing weights with sums in population")
-        self.weights_pop_normalized_df = self.weights.div(self.weights_pop_sum_df, axis="index")
-        self.weights_pop_normalized_df = self.weights_pop_normalized_df.reindex(self.weights_pop_normalized_df.index)
+        self.weights_pop_normalized_df = self.weights.div(
+            self.weights_pop_sum_df, axis="index"
+        )
+        self.weights_pop_normalized_df = self.weights_pop_normalized_df.reindex(
+            self.weights_pop_normalized_df.index
+        )
 
         # Apply normalized weights to records
         logger.debug(f"Applying weights to records")
-        self.records_weighted_sel_df = self.records_df_selection.mul(self.weights_sel_normalized_df, axis="index")
-        self.records_weighted_pop_df = self.records_df_selection.mul(self.weights_pop_normalized_df, axis="index")
+        self.records_weighted_sel_df = self.records_df_selection.mul(
+            self.weights_sel_normalized_df, axis="index"
+        )
+        self.records_weighted_pop_df = self.records_df_selection.mul(
+            self.weights_pop_normalized_df, axis="index"
+        )
 
         # Group weighted records by selection and population
-        self.records_weighted_sel_grp = self.records_weighted_sel_df.groupby(self.group_keys)
-        self.records_weighted_pop_grp = self.records_weighted_pop_df.groupby(self.group_keys)
+        self.records_weighted_sel_grp = self.records_weighted_sel_df.groupby(
+            self.group_keys
+        )
+        self.records_weighted_pop_grp = self.records_weighted_pop_df.groupby(
+            self.group_keys
+        )
 
         # Transform to get summed weighted means
-        self.records_weighted_sel_mean_df = self.records_weighted_sel_grp.transform("sum")
-        self.records_weighted_pop_mean_df = self.records_weighted_pop_grp.transform("sum")
+        self.records_weighted_sel_mean_df = self.records_weighted_sel_grp.transform(
+            "sum"
+        )
+        self.records_weighted_pop_mean_df = self.records_weighted_pop_grp.transform(
+            "sum"
+        )
 
         # Aggregate weighted means
         logger.debug(f"Calculating weighted means")
@@ -489,7 +515,9 @@ class WeightedSampleStatistics:
 
         # Calculate the sum of conditional weighted means
         logger.debug(f"Calculating conditional weighted means")
-        self.records_sum = self.records_weighted_conditional_mean_agg.mul(self.weights_sel_sum_agg, axis="index")
+        self.records_sum = self.records_weighted_conditional_mean_agg.mul(
+            self.weights_sel_sum_agg, axis="index"
+        )
 
         # Handle NaN values by filling them with 0
         logger.debug(f"Fill NaN's with 0")
@@ -500,7 +528,9 @@ class WeightedSampleStatistics:
             for col_name in self.records_sum:
                 new_col = make_negation_name(col_name, self.negation_suffix)
                 logger.debug(f"Creating new negated column {new_col}")
-                filter_sum = self.var_weights_sel_sum_agg.reindex(self.records_sum.index).fillna(0)
+                filter_sum = self.var_weights_sel_sum_agg.reindex(
+                    self.records_sum.index
+                ).fillna(0)
                 self.records_sum[new_col] = filter_sum - self.records_sum[col_name]
 
         # Count the response for each group
@@ -605,7 +635,7 @@ class WeightedSampleStatistics:
         elif self.weights_sel_normalized_df is not None:
             # for the compound breakdowns, us the variances from the first round and multiply
             # with w_i**2
-            
+
             weights_sel_normalized_df_squared = np.square(
                 self.weights_sel_normalized_df
             )
