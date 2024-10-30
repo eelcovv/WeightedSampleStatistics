@@ -23,7 +23,7 @@ __author__ = "Eelco van Vliet"
 __copyright__ = "Eelco van Vliet"
 __license__ = "MIT"
 
-_logger = logging.getLogger(__name__)
+from weighted_sample_statistics import logger as _logger
 
 
 # ---- Python API ----

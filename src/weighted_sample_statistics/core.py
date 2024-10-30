@@ -5,6 +5,7 @@ Definition of weighted_sample_statistics class to calculate weighted weighted_sa
 import logging
 import re
 from typing import Union, Iterable, Optional
+from unittest.mock import inplace
 
 import numpy as np
 from pandas import DataFrame
@@ -623,7 +624,12 @@ class WeightedSampleStatistics:
             # for the first round (on the smallest strata, calculate the standard deviation based
             # on the microdata sum_i (w_i * (x_i - x_mean)**2)
             # where w_i are the normalized weight for which by definition: sum_i w_i = 1
-            mean_proportion = self.proportion_pop_grp.transform("sum")
+            try:
+                mean_proportion = self.proportion_pop_grp.transform("sum")
+            except AttributeError as err:
+                logger.warning(err)
+                return
+
             proportion_minus_mean = self.proportion_pop_df - mean_proportion
             proportion_squared = np.square(proportion_minus_mean)
             proportion_squared_sel = proportion_squared.reindex(
@@ -635,6 +641,10 @@ class WeightedSampleStatistics:
         elif self.weights_sel_normalized_df is not None:
             # for the compound breakdowns, us the variances from the first round and multiply
             # with w_i**2
+            number_of_nans = self.weights_sel_normalized_df.isna().sum()
+            if number_of_nans > 0:
+                logger.info(f"Weights contain {number_of_nans} nans. Filling with 0")
+                self.weights_sel_normalized_df = self.weights_sel_normalized_df.fillna(0)
 
             weights_sel_normalized_df_squared = np.square(
                 self.weights_sel_normalized_df
@@ -647,8 +657,6 @@ class WeightedSampleStatistics:
             except TypeError as err:
                 logger.warning(err)
                 return
-            else:
-                logger.warning("Assertion Error HERE. Check why weights is none")
 
         records_var_grp = records_var.groupby(self.group_keys)
         self.records_var_df = records_var_grp.transform("sum")
@@ -665,9 +673,13 @@ class WeightedSampleStatistics:
             ratio = self.n_sample.div(self.weights_sel_sum_agg, axis="index")
             ratio[ratio > 1] = 1
             fpc = np.sqrt(1 - ratio)
-            self.standard_error = self.records_std_agg.div(
-                self.number_samples_sqrt, axis="index"
-            )
+            try:
+                self.standard_error = self.records_std_agg.div(
+                    self.number_samples_sqrt, axis="index"
+                )
+            except ZeroDivisionError as err:
+                logger.warning(f"{err}")
+                return
             self.standard_error = self.standard_error.mul(fpc, axis="index")
         else:
             # We got the standard error from the compound standard deviations.
