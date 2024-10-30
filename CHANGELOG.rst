@@ -2,7 +2,11 @@
 Changelog
 =========
 
-Version 0.1.3
+Version 0.2.1
+=============
+- Improved logging
+
+Version 0.1.4
 =============
 - Code reformat with codeium
 - Bug fix for variances
