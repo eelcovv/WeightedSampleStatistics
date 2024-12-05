@@ -657,6 +657,9 @@ class WeightedSampleStatistics:
             except TypeError as err:
                 logger.warning(err)
                 return
+        else:
+            logger.info("We have variances but no weights. Use weight factor 1")
+            records_var = self.variance_df_selection.astype(float)
 
         records_var_grp = records_var.groupby(self.group_keys)
         self.records_var_df = records_var_grp.transform("sum")
