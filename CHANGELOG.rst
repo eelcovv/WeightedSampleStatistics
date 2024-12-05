@@ -2,6 +2,10 @@
 Changelog
 =========
 
+Version 0.2.3
+=============
+- Default for variance calculation is now added as one
+
 Version 0.2.2
 =============
 - Improved logging
