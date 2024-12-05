@@ -22,9 +22,9 @@ def make_negation_name(column_name: str, suffix: str = "_x") -> str:
     -------
     negation_name : str
     """
-    negation_name = re.sub("_\d\.\d$", "", column_name) + suffix
-    if re.search("_\d\.\d$", column_name):
-        negation_name += re.search("_\d\.\d$", column_name).group()
+    negation_name = re.sub(r"_\d\.\d$", "", column_name) + suffix
+    if re.search(r"_\d\.\d$", column_name):
+        negation_name += re.search(r"_\d\.\d$", column_name).group()
     return negation_name
 
 
