@@ -4,8 +4,7 @@ Definition of weighted_sample_statistics class to calculate weighted weighted_sa
 
 import logging
 import re
-from typing import Union, Iterable, Optional
-from unittest.mock import inplace
+from typing import Iterable, Optional, Union
 
 import numpy as np
 from pandas import DataFrame
@@ -644,7 +643,9 @@ class WeightedSampleStatistics:
             number_of_nans = self.weights_sel_normalized_df.isna().sum()
             if number_of_nans > 0:
                 logger.info(f"Weights contain {number_of_nans} nans. Filling with 0")
-                self.weights_sel_normalized_df = self.weights_sel_normalized_df.fillna(0)
+                self.weights_sel_normalized_df = self.weights_sel_normalized_df.fillna(
+                    0
+                )
 
             weights_sel_normalized_df_squared = np.square(
                 self.weights_sel_normalized_df
