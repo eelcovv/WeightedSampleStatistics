@@ -2,6 +2,10 @@
 Changelog
 =========
 
+Version 0.2.4
+=============
+- Changed to pyproject.toml for packaging
+
 Version 0.2.3
 =============
 - Default for variance calculation is now added as one
